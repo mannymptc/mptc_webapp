@@ -1,8 +1,8 @@
 import streamlit as st
-from utils.auth_manager import get_authenticator
 import pandas as pd
 import pyodbc
 from datetime import datetime
+import plotly.express as px
 import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side
@@ -11,18 +11,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 st.set_page_config(page_title="📦 Channel Despatch Summary", layout="wide")
 st.title("🚚 Daily Despatch Summary")
 
-# ---------------- AUTH ----------------
-authenticator, config = get_authenticator()
-name, auth_status, username = authenticator.login("Login", location="main")
-
-if not auth_status:
-    st.stop()
-
-st.sidebar.write(f"👋 Welcome {name}")
-authenticator.logout("Logout", "sidebar")
-
-# ---------------- DATABASE CONNECTION ----------------
-@st.cache_resource
+# ------------------ DATABASE CONNECTION ------------------
 def connect_db():
     return pyodbc.connect(
         "DRIVER={ODBC Driver 17 for SQL Server};"
@@ -32,7 +21,9 @@ def connect_db():
         "PWD=Mptc@2025"
     )
 
-# ---------------- LOAD DATA FUNCTION ----------------
+conn = connect_db()
+
+# ------------------ LOAD DATA FUNCTION ------------------
 @st.cache_data
 def load_data(start_date_str=None, end_date_str=None):
     if start_date_str and end_date_str:
@@ -62,12 +53,9 @@ def load_data(start_date_str=None, end_date_str=None):
     ORDER BY total_orders_value DESC;
     """
 
-    conn = connect_db()
-    df = pd.read_sql(query, conn)
-    conn.close()
-    return df
+    return pd.read_sql(query, conn)
 
-# ---------------- SIDEBAR DATE FILTER ----------------
+# ------------------ SIDEBAR DATE FILTER ------------------
 st.sidebar.header("Select Despatch Date Range")
 selected_range = st.sidebar.date_input("Despatch Date Range", [])
 
@@ -81,19 +69,19 @@ else:
 start_date_str = start_date.strftime("%Y-%m-%d") if start_date else None
 end_date_str = end_date.strftime("%Y-%m-%d") if end_date else None
 
-# ---------------- LOAD DATA ----------------
+# ------------------ LOAD DATA ------------------
 df = load_data(start_date_str, end_date_str)
 
 if df.empty:
     st.warning("No orders found for the selected despatch date(s).")
     st.stop()
 
-# ---------------- GRAND TOTAL ----------------
+# ------------------ GRAND TOTAL ------------------
 grand_total_value = df["total_orders_value"].sum()
 grand_total_count = df["orders_count"].sum()
 df.loc[len(df.index)] = ["Grand Total", grand_total_value, grand_total_count]
 
-# ---------------- CREATE EXCEL ----------------
+# ------------------ CREATE EXCEL FILE ------------------
 output = io.BytesIO()
 wb = Workbook()
 ws = wb.active
@@ -130,7 +118,7 @@ ws.column_dimensions["C"].width = 15
 wb.save(output)
 output.seek(0)
 
-# ---------------- HEADER + DOWNLOAD BUTTON ----------------
+# ------------------ HEADER + DOWNLOAD BUTTON ------------------
 left_col, right_col = st.columns([6, 1])
 
 with left_col:
@@ -151,10 +139,10 @@ with right_col:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# ---------------- SHOW TABLE ----------------
-st.dataframe(df, use_container_width=True, height=600)
+# ------------------ SHOW TABLE ------------------
+st.dataframe(df, use_container_width=True)
 
-# ---------------- BAR & DONUT CHARTS ----------------
+# ------------------ CHARTS ------------------
 df_chart = df[df["channel"] != "Grand Total"]
 
 st.subheader("📊 Total Orders Value by Channel")
@@ -162,7 +150,7 @@ fig_value_bar = px.bar(df_chart, x="channel", y="total_orders_value", text="tota
 st.plotly_chart(fig_value_bar, use_container_width=True)
 
 st.subheader("📦 Orders Count by Channel")
-fig_count_bar = px.bar(df_chart, x="channel", y="orders_count", text="orders_count", title="Channel-wise Order Count")
+fig_count_bar = px.bar(df_chart, x="channel", y="orders_count", text="orders_count", title="Channel-wise Orders Count")
 st.plotly_chart(fig_count_bar, use_container_width=True)
 
 st.subheader("🍩 Revenue Share by Channel")
