@@ -18,6 +18,9 @@ with tab1:
         else:
             df = pd.read_csv(uploaded_file)
 
+        # ✅ FIX: Clean column names
+        df.columns = [col.strip().lower().replace(" ", "_") for col in df.columns]
+
         st.dataframe(df.head())
         channel_col = df.columns[0]
         channels = df[channel_col].unique()
@@ -26,7 +29,12 @@ with tab1:
 
         for idx, channel in enumerate(channels):
             filtered_df = df[df[channel_col] == channel]
-            summary = filtered_df.groupby("product_sku").agg(total_qty=('product_qty', 'sum'), total_value=('order_value', 'sum')).reset_index()
+
+            # ✅ Now this will NOT fail because column names are clean
+            summary = filtered_df.groupby("product_sku").agg(
+                total_qty=('product_qty', 'sum'),
+                total_value=('order_value', 'sum')
+            ).reset_index()
 
             with col_layout[idx % 2]:
                 st.subheader(f"🔹 Channel: {channel}")
