@@ -6,7 +6,6 @@ import plotly.express as px
 st.set_page_config(page_title="📊 MPTC Business Dashboard", layout="wide")
 st.title("🏭 Channel-wise Overview Dashboard")
 
-# Database Connection
 def connect_db():
     return pyodbc.connect(
         "DRIVER={ODBC Driver 17 for SQL Server};"
@@ -16,18 +15,26 @@ def connect_db():
         "PWD=Mptc@2025"
     )
 
-conn = connect_db()
-
 @st.cache_data
 def load_data():
-    query = """
-    SELECT order_id, order_channel, order_date, despatch_date, order_value, 
-           order_cust_postcode, product_sku, product_name, product_qty, customer_name, 
-           product_price, order_courier_service
-    FROM OrdersDespatch
-    """
-    return pd.read_sql(query, conn)
+    try:
+        conn = connect_db()
+        query = """
+        SELECT order_id, order_channel, order_date, despatch_date, order_value, 
+               order_cust_postcode, product_sku, product_name, product_qty, customer_name, 
+               product_price, order_courier_service
+        FROM OrdersDespatch
+        """
+        return pd.read_sql(query, conn)
+    except Exception as e:
+        st.error(f"❌ Database connection failed: {e}")
+        return pd.DataFrame()
 
+df = load_data()
+if df.empty:
+    st.stop()
+
+# (Your existing code continues here without any changes)
 df = load_data()
 df['order_date'] = pd.to_datetime(df['order_date'])
 df['despatch_date'] = pd.to_datetime(df['despatch_date'])
