@@ -89,7 +89,6 @@ sku_summary = (
     filtered_df.groupby(['product_sku', 'product_name'])
     .agg(
         sold_qty=('product_qty', 'sum'),
-        revenue=('product_price', lambda x: (x * filtered_df.loc[x.index, 'product_qty']).sum()),
         unique_orders=('order_id', pd.Series.nunique)
     )
     .reset_index()
@@ -99,14 +98,14 @@ sku_summary = (
 st.markdown(f"### 🔝 Top {top_n} Most Sold SKUs")
 st.dataframe(
     sku_summary.sort_values(by='sold_qty', ascending=False)
-    .head(top_n)[['product_sku', 'product_name', 'sold_qty', 'revenue', 'unique_orders']],
+    .head(top_n)[['product_sku', 'product_name', 'sold_qty', 'unique_orders']],
     use_container_width=True
 )
 
 st.markdown(f"### 🔻 Bottom {top_n} Least Sold SKUs")
 st.dataframe(
     sku_summary.sort_values(by='sold_qty', ascending=True)
-    .head(top_n)[['product_sku', 'product_name', 'sold_qty', 'revenue', 'unique_orders']],
+    .head(top_n)[['product_sku', 'product_name', 'sold_qty', 'unique_orders']],
     use_container_width=True
 )
 
