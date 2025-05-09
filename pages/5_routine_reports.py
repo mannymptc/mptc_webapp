@@ -54,21 +54,87 @@ with tab2:
         mintsoft_file = st.file_uploader("Upload Mintsoft Export (.xlsx)", type=["xlsx"])
 
     if opera_file and mintsoft_file:
-        opera_df = pd.read_excel(opera_file)
-        mintsoft_df = pd.read_excel(mintsoft_file)
+        try:
+            # Load both files
+            opera_df = pd.read_excel(opera_file)
+            mintsoft_df = pd.read_excel(mintsoft_file)
 
-        opera_df = opera_df[['SKU', 'Free Stock Quantity']].rename(columns={'Free Stock Quantity': 'Opera_Stock'})
-        mintsoft_df = mintsoft_df[['ProductSKU', 'Location', 'Quantity']].rename(columns={'ProductSKU': 'SKU', 'Quantity': 'Mintsoft_Quantity'})
+            # Clean column names
+            opera_df.columns = [col.strip() for col in opera_df.columns]
+            mintsoft_df.columns = [col.strip() for col in mintsoft_df.columns]
 
-        opera_df['SKU'] = opera_df['SKU'].astype(str)
-        mintsoft_df['SKU'] = mintsoft_df['SKU'].astype(str)
+            # Select required columns (case-insensitive matching)
+            opera_df = opera_df[[col for col in opera_df.columns if col.lower() in ['sku', 'free stock quantity']]]
+            mintsoft_df = mintsoft_df[[col for col in mintsoft_df.columns if col.lower() in ['productsku', 'location', 'quantity']]]
 
-        mintsoft_total = mintsoft_df.groupby('SKU')['Mintsoft_Quantity'].sum().reset_index()
-        merged = opera_df.merge(mintsoft_total, on='SKU', how='inner')
-        merged['Delta_Stock'] = merged['Opera_Stock'] - merged['Mintsoft_Quantity']
+            # Rename columns to expected format
+            opera_df.columns = ['SKU', 'Free Stock Quantity']
+            mintsoft_df.columns = ['ProductSKU', 'Location', 'Mintsoft_Quantity']
 
-        st.subheader("📌 Delta Stock")
-        st.dataframe(merged)
+            # Processing logic
+            opera_df['SKU'] = opera_df['SKU'].astype(str)
+            mintsoft_df['ProductSKU'] = mintsoft_df['ProductSKU'].astype(str)
 
-        csv = merged.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Download CSV", data=csv, file_name="delta_stock.csv", mime="text/csv")
+            # Prevent negative stocks
+            opera_df['Free Stock Quantity'] = opera_df['Free Stock Quantity'].apply(lambda x: max(x, 0))
+
+            mintsoft_total = mintsoft_df.groupby('ProductSKU')['Mintsoft_Quantity'].sum().reset_index()
+            mintsoft_total.rename(columns={'ProductSKU': 'SKU', 'Mintsoft_Quantity': 'Total_Mintsoft_Stock'}, inplace=True)
+
+            delta_df = opera_df.merge(mintsoft_total, on='SKU', how='inner')
+            delta_df['Delta_Stock'] = delta_df['Free Stock Quantity'] - delta_df['Total_Mintsoft_Stock']
+
+            final_report_list = []
+
+            for _, row in delta_df.iterrows():
+                sku = row['SKU']
+                delta_stock = row['Delta_Stock']
+                mintsoft_locations = mintsoft_df[mintsoft_df['ProductSKU'] == sku]
+
+                if delta_stock > 0:
+                    for _, loc_row in mintsoft_locations.iterrows():
+                        final_report_list.append({
+                            'Client': 'MPTC',
+                            'SKU': sku,
+                            'Warehouse': 'Main',
+                            'Location': loc_row['Location'],
+                            'BestBefore': '',
+                            'BatchNo': '',
+                            'SerialNo': '',
+                            'Quantity': delta_stock,
+                            'Comment': 'Quantity added to inventory'
+                        })
+                        break
+
+                elif delta_stock < 0:
+                    remaining_delta = abs(delta_stock)
+                    mintsoft_locations = mintsoft_locations.sort_values(by=['Mintsoft_Quantity', 'Location'])
+                    for _, loc_row in mintsoft_locations.iterrows():
+                        if remaining_delta <= 0:
+                            break
+                        loc_quantity = loc_row['Mintsoft_Quantity']
+                        reduce_quantity = min(loc_quantity, remaining_delta)
+                        remaining_delta -= reduce_quantity
+                        final_report_list.append({
+                            'Client': 'MPTC',
+                            'SKU': sku,
+                            'Warehouse': 'Main',
+                            'Location': loc_row['Location'],
+                            'BestBefore': '',
+                            'BatchNo': '',
+                            'SerialNo': '',
+                            'Quantity': -reduce_quantity,
+                            'Comment': 'Quantity removed from inventory'
+                        })
+
+            final_report = pd.DataFrame(final_report_list)
+            final_report = final_report[final_report['Quantity'] != 0]
+
+            st.subheader("📌 Final Delta Report Preview")
+            st.dataframe(final_report, use_container_width=True)
+
+            csv = final_report.to_csv(index=False).encode("utf-8")
+            st.download_button("⬇️ Download CSV", data=csv, file_name="Final_Delta_Report.csv", mime="text/csv")
+
+        except Exception as e:
+            st.error(f"❌ Error processing files: {e}")
