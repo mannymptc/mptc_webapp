@@ -38,6 +38,24 @@ df = load_data()
 if df.empty:
     st.stop()
 
+# ------------------ SIDEBAR: DATE FILTER ------------------
+st.sidebar.header("📅 Filter by Despatch Date")
+selected_dates = st.sidebar.date_input("Despatch Date Range", [])
+
+today = pd.to_datetime("today").normalize()
+default_start = today - timedelta(days=30)
+
+if len(selected_dates) == 0:
+    start_date = default_start
+    end_date = today
+elif len(selected_dates) == 1:
+    start_date = end_date = pd.to_datetime(selected_dates[0])
+else:
+    start_date, end_date = pd.to_datetime(selected_dates)
+
+df['despatch_date'] = pd.to_datetime(df['despatch_date'])
+df = df[df['despatch_date'].between(start_date, end_date)]
+
 # ------------------ CHANNEL FILTER ------------------
 channels = sorted(df['order_channel'].dropna().unique().tolist())
 all_option = "Select All"
@@ -45,24 +63,10 @@ channels_with_all = [all_option] + channels
 
 selected_channels = st.multiselect("📦 Select Sales Channel(s)", options=channels_with_all, default=all_option)
 
-# Logic for 'Select All'
 if all_option in selected_channels:
     selected_channels = channels
 
 filtered_df = df[df['order_channel'].isin(selected_channels)]
-
-# ------------------ DATE RANGE FILTER ------------------
-selected_dates = st.date_input("Despatch Date Range", [])
-
-if len(selected_dates) == 0:
-    end_date = pd.to_datetime(date.today())
-    start_date = end_date - timedelta(days=9)
-elif len(selected_dates) == 1:
-    start_date = end_date = pd.to_datetime(selected_dates[0])
-else:
-    start_date, end_date = pd.to_datetime(selected_dates)
-
-filtered_df = filtered_df[filtered_df['despatch_date'].between(start_date, end_date)]
 
 if filtered_df.empty:
     st.warning("No data for selected filters.")
