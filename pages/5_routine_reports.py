@@ -55,41 +55,42 @@ with tab2:
 
     if opera_file and mintsoft_file:
         try:
-            opera_df = pd.read_excel(opera_file)
-            mintsoft_df = pd.read_excel(mintsoft_file)
+            # ✅ Read Opera file with header row
+            opera_df = pd.read_excel(opera_file, header=0)
 
-            # Clean column names
-            opera_df.columns = [col.strip() for col in opera_df.columns]
-            mintsoft_df.columns = [col.strip() for col in mintsoft_df.columns]
+            # ✅ Normalize Opera column names
+            opera_df.columns = [col.strip().lower().replace("  ", " ").replace("_", " ") for col in opera_df.columns]
 
-            # ✅ Detect Opera Stock columns using fuzzy matching
-            sku_col = next((col for col in opera_df.columns if "stock reference" in col.lower()), None)
-            stock_col = next((col for col in opera_df.columns if "free stock" in col.lower()), None)
+            # ✅ Fuzzy match for Opera columns
+            sku_col = next((col for col in opera_df.columns if "stock reference" in col), None)
+            stock_col = next((col for col in opera_df.columns if "free stock quantity" in col), None)
 
             if not sku_col or not stock_col:
                 st.error("❌ 'Opera Stock' file must contain columns like 'Stock Reference' and 'Free Stock Quantity'")
+                st.write("🔍 Detected columns:", opera_df.columns.tolist())
                 st.stop()
 
-            # ✅ Rename for processing
+            # ✅ Standardize column names
             opera_df = opera_df[[sku_col, stock_col]].rename(
                 columns={sku_col: 'SKU', stock_col: 'Opera_Stock'}
             )
 
-            # ✅ Rename Mintsoft columns (assumed clean)
+            # ✅ Read and clean Mintsoft file
+            mintsoft_df = pd.read_excel(mintsoft_file)
             mintsoft_df = mintsoft_df[['ProductSKU', 'Location', 'Quantity']].rename(
                 columns={'ProductSKU': 'SKU', 'Quantity': 'Mintsoft_Quantity'}
             )
 
-            # Format data
+            # ✅ Ensure correct types
             opera_df['SKU'] = opera_df['SKU'].astype(str)
             mintsoft_df['SKU'] = mintsoft_df['SKU'].astype(str)
             opera_df['Opera_Stock'] = opera_df['Opera_Stock'].apply(lambda x: max(x, 0))
 
-            # Group Mintsoft stock
+            # ✅ Group Mintsoft total stock
             mintsoft_total = mintsoft_df.groupby('SKU')['Mintsoft_Quantity'].sum().reset_index()
             mintsoft_total.rename(columns={'Mintsoft_Quantity': 'Total_Mintsoft_Stock'}, inplace=True)
 
-            # Merge & Delta Calculation
+            # ✅ Merge & calculate delta
             delta_df = opera_df.merge(mintsoft_total, on='SKU', how='inner')
             delta_df['Delta_Stock'] = delta_df['Opera_Stock'] - delta_df['Total_Mintsoft_Stock']
 
@@ -136,12 +137,14 @@ with tab2:
                             'Comment': 'Quantity removed from inventory'
                         })
 
+            # ✅ Final delta report
             final_report = pd.DataFrame(final_report_list)
             final_report = final_report[final_report['Quantity'] != 0]
 
             st.subheader("📌 Final Delta Report Preview")
             st.dataframe(final_report, use_container_width=True)
 
+            # ✅ Download final report
             today_str = datetime.now().strftime("%d-%b-%Y")
             csv = final_report.to_csv(index=False).encode("utf-8")
             st.download_button(
