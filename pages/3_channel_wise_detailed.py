@@ -41,6 +41,9 @@ if df.empty:
 channels = sorted(df['order_channel'].dropna().unique().tolist())
 selected_channel = st.selectbox("📦 Select a Sales Channel", channels)
 
+# 🔢 Top N Selector
+top_n = st.selectbox("Show Top/Bottom N Records", [5, 10, 15, 20], index=1)
+
 st.subheader(f"📦 Channel: `{selected_channel}`")
 channel_df = df[df['order_channel'] == selected_channel]
 
@@ -76,32 +79,32 @@ col4.metric("🔢 Unique SKUs Sold", unique_skus)
 # ------------------ SKU SUMMARY ------------------
 sku_summary = (
     channel_df.groupby(['product_sku', 'product_name'])
-    .agg(total_qty=('product_qty', 'sum'))
+    .agg(order_qty=('product_qty', 'sum'))
     .reset_index()
 )
 
-st.markdown("### 🔝 Top 10 Most Sold SKUs")
-st.dataframe(sku_summary.sort_values(by='total_qty', ascending=False).head(10))
+st.markdown(f"### 🔝 Top {top_n} Most Sold SKUs")
+st.dataframe(sku_summary.sort_values(by='order_qty', ascending=False).head(top_n), use_container_width=True, height=500)
 
-st.markdown("### 🔻 Bottom 10 Least Sold SKUs")
-st.dataframe(sku_summary.sort_values(by='total_qty', ascending=True).head(10))
+st.markdown(f"### 🔻 Bottom {top_n} Least Sold SKUs")
+st.dataframe(sku_summary.sort_values(by='order_qty', ascending=True).head(top_n), use_container_width=True, height=500)
 
 # ------------------ POSTCODE SUMMARY ------------------
 postcode_summary = channel_df['order_cust_postcode'].value_counts().reset_index()
 postcode_summary.columns = ['Postcode', 'Orders']
 
 if not postcode_summary.empty:
-    st.markdown("### 🏡 Top 10 Most Common Postcodes")
-    st.dataframe(postcode_summary.head(10))
+    st.markdown(f"### 🏡 Top {top_n} Most Common Postcodes")
+    st.dataframe(postcode_summary.head(top_n), use_container_width=True, height=500)
 
-    st.markdown("### 🏡 Top 10 Least Common Postcodes")
-    st.dataframe(postcode_summary.tail(10).sort_values(by="Orders"))
+    st.markdown(f"### 🏡 Top {top_n} Least Common Postcodes")
+    st.dataframe(postcode_summary.tail(top_n).sort_values(by="Orders"), use_container_width=True, height=500)
 else:
     st.info("No postcode data available.")
 
 # ------------------ RAW DATA + DOWNLOAD ------------------
 st.markdown("### 🧾 Sample Raw Data")
-st.dataframe(channel_df.head(10))
+st.dataframe(channel_df.head(10), use_container_width=True)
 
 csv_data = channel_df.to_csv(index=False).encode("utf-8")
 st.download_button(
