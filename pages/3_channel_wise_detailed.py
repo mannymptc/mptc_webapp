@@ -54,23 +54,23 @@ else:
 
     sku_summary = channel_df.groupby(['product_sku', 'product_name']).agg(total_qty=('product_qty', 'sum')).reset_index()
 
-    st.markdown("### 🔝 Top 5 Most Sold SKUs")
-    st.dataframe(sku_summary.sort_values(by='total_qty', ascending=False).head(5))
+    st.markdown("### 🔝 Top 10 Most Sold SKUs")
+    st.dataframe(sku_summary.sort_values(by='total_qty', ascending=False).head(10))
 
-    st.markdown("### 🔻 Bottom 5 Least Sold SKUs")
-    st.dataframe(sku_summary.sort_values(by='total_qty', ascending=True).head(5))
+    st.markdown("### 🔻 Bottom 10 Least Sold SKUs")
+    st.dataframe(sku_summary.sort_values(by='total_qty', ascending=True).head(10))
 
     postcode_summary = channel_df['order_cust_postcode'].value_counts().reset_index()
     postcode_summary.columns = ['Postcode', 'Orders']
 
     if not postcode_summary.empty:
-        st.markdown("### 🏡 Top 5 Most Common Postcodes")
-        st.dataframe(postcode_summary.head(5))
+    st.markdown("### 🏡 Top 10 Most Common Postcodes")
+    st.dataframe(postcode_summary.head(10))
 
-        st.markdown("### 🏡 Top 5 Least Common Postcodes")
-        st.dataframe(postcode_summary.tail(5).sort_values(by="Orders"))
-    else:
-        st.info("No postcode data available.")
+    st.markdown("### 🏡 Top 10 Least Common Postcodes")
+    st.dataframe(postcode_summary.tail(10).sort_values(by="Orders"))
+else:
+    st.info("No postcode data available.")
 
     st.markdown("### 🧾 Sample Raw Data")
     st.dataframe(channel_df.head(10))
