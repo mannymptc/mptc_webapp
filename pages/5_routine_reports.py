@@ -55,7 +55,6 @@ with tab2:
 
     if opera_file and mintsoft_file:
         try:
-            # Load both files
             opera_df = pd.read_excel(opera_file)
             mintsoft_df = pd.read_excel(mintsoft_file)
 
@@ -63,33 +62,40 @@ with tab2:
             opera_df.columns = [col.strip() for col in opera_df.columns]
             mintsoft_df.columns = [col.strip() for col in mintsoft_df.columns]
 
-            # Select required columns (case-insensitive matching)
-            opera_df = opera_df[[col for col in opera_df.columns if col.lower() in ['sku', 'free stock quantity']]]
-            mintsoft_df = mintsoft_df[[col for col in mintsoft_df.columns if col.lower() in ['productsku', 'location', 'quantity']]]
+            # Check if required columns exist
+            if not all(col in opera_df.columns for col in ['SKU', 'Free Stock Quantity']):
+                st.error("❌ 'Opera Stock' file must contain columns: 'SKU' and 'Free Stock Quantity'")
+                st.stop()
 
-            # Rename columns to expected format
-            opera_df.columns = ['SKU', 'Free Stock Quantity']
-            mintsoft_df.columns = ['ProductSKU', 'Location', 'Mintsoft_Quantity']
+            if not all(col in mintsoft_df.columns for col in ['ProductSKU', 'Location', 'Quantity']):
+                st.error("❌ 'Mintsoft Export' file must contain columns: 'ProductSKU', 'Location', and 'Quantity'")
+                st.stop()
 
-            # Processing logic
+            # Select only required columns
+            opera_df = opera_df[['SKU', 'Free Stock Quantity']].rename(columns={'Free Stock Quantity': 'Opera_Stock'})
+            mintsoft_df = mintsoft_df[['ProductSKU', 'Location', 'Quantity']].rename(columns={
+                'ProductSKU': 'SKU', 'Quantity': 'Mintsoft_Quantity'
+            })
+
+            # Data cleanup
             opera_df['SKU'] = opera_df['SKU'].astype(str)
-            mintsoft_df['ProductSKU'] = mintsoft_df['ProductSKU'].astype(str)
+            mintsoft_df['SKU'] = mintsoft_df['SKU'].astype(str)
+            opera_df['Opera_Stock'] = opera_df['Opera_Stock'].apply(lambda x: max(x, 0))
 
-            # Prevent negative stocks
-            opera_df['Free Stock Quantity'] = opera_df['Free Stock Quantity'].apply(lambda x: max(x, 0))
+            # Aggregate Mintsoft stock
+            mintsoft_total = mintsoft_df.groupby('SKU')['Mintsoft_Quantity'].sum().reset_index()
+            mintsoft_total.rename(columns={'Mintsoft_Quantity': 'Total_Mintsoft_Stock'}, inplace=True)
 
-            mintsoft_total = mintsoft_df.groupby('ProductSKU')['Mintsoft_Quantity'].sum().reset_index()
-            mintsoft_total.rename(columns={'ProductSKU': 'SKU', 'Mintsoft_Quantity': 'Total_Mintsoft_Stock'}, inplace=True)
-
+            # Merge and calculate delta
             delta_df = opera_df.merge(mintsoft_total, on='SKU', how='inner')
-            delta_df['Delta_Stock'] = delta_df['Free Stock Quantity'] - delta_df['Total_Mintsoft_Stock']
+            delta_df['Delta_Stock'] = delta_df['Opera_Stock'] - delta_df['Total_Mintsoft_Stock']
 
             final_report_list = []
 
             for _, row in delta_df.iterrows():
                 sku = row['SKU']
                 delta_stock = row['Delta_Stock']
-                mintsoft_locations = mintsoft_df[mintsoft_df['ProductSKU'] == sku]
+                mintsoft_locations = mintsoft_df[mintsoft_df['SKU'] == sku]
 
                 if delta_stock > 0:
                     for _, loc_row in mintsoft_locations.iterrows():
@@ -133,8 +139,14 @@ with tab2:
             st.subheader("📌 Final Delta Report Preview")
             st.dataframe(final_report, use_container_width=True)
 
+            today_str = datetime.now().strftime("%d-%b-%Y")
             csv = final_report.to_csv(index=False).encode("utf-8")
-            st.download_button("⬇️ Download CSV", data=csv, file_name="Final_Delta_Report.csv", mime="text/csv")
+            st.download_button(
+                "⬇️ Download CSV",
+                data=csv,
+                file_name=f"Final_Delta_Report_{today_str}.csv",
+                mime="text/csv"
+            )
 
         except Exception as e:
             st.error(f"❌ Error processing files: {e}")
