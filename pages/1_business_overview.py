@@ -2,10 +2,12 @@ import streamlit as st
 import pandas as pd
 import pyodbc
 import plotly.express as px
+from datetime import datetime, timedelta
 
 st.set_page_config(page_title="📊 MPTC Business Dashboard", layout="wide")
 st.title("🏭 Channel-wise Overview Dashboard")
 
+# ------------------ DATABASE CONNECTION ------------------
 def connect_db():
     return pyodbc.connect(
         "DRIVER={ODBC Driver 17 for SQL Server};"
@@ -15,6 +17,7 @@ def connect_db():
         "PWD=Mptc@2025"
     )
 
+# ------------------ LOAD DATA ------------------
 @st.cache_data
 def load_data():
     try:
@@ -25,7 +28,9 @@ def load_data():
                product_price, order_courier_service
         FROM OrdersDespatch
         """
-        return pd.read_sql(query, conn)
+        df = pd.read_sql(query, conn)
+        conn.close()
+        return df
     except Exception as e:
         st.error(f"❌ Database connection failed: {e}")
         return pd.DataFrame()
@@ -34,30 +39,52 @@ df = load_data()
 if df.empty:
     st.stop()
 
-# (Your existing code continues here without any changes)
-df = load_data()
 df['order_date'] = pd.to_datetime(df['order_date'])
 df['despatch_date'] = pd.to_datetime(df['despatch_date'])
 
-# Filters
-st.sidebar.header("Filter Data")
-channels = df['order_channel'].dropna().unique().tolist()
-selected_channels = st.sidebar.multiselect("Select Channels", options=channels, default=channels)
-order_date_range = st.sidebar.date_input("Filter by Order Date", [])
-despatch_date_range = st.sidebar.date_input("Filter by Despatch Date", [])
+# ------------------ SIDEBAR DATE FILTER ------------------
+st.sidebar.header("📅 Filter by Date")
+order_date_range = st.sidebar.date_input("Order Date Range", [])
+despatch_date_range = st.sidebar.date_input("Despatch Date Range", [])
 
-df = df[df['order_channel'].isin(selected_channels)]
+today = pd.to_datetime("today").normalize()
+default_start = today - timedelta(days=30)
 
-if len(order_date_range) == 1:
-    df = df[df['order_date'].dt.date == order_date_range[0]]
-elif len(order_date_range) == 2:
-    df = df[df['order_date'].between(pd.to_datetime(order_date_range[0]), pd.to_datetime(order_date_range[1]))]
+if len(order_date_range) == 0:
+    order_start = default_start
+    order_end = today
+elif len(order_date_range) == 1:
+    order_start = order_end = pd.to_datetime(order_date_range[0])
+else:
+    order_start, order_end = pd.to_datetime(order_date_range)
 
-if len(despatch_date_range) == 1:
-    df = df[df['despatch_date'].dt.date == despatch_date_range[0]]
-elif len(despatch_date_range) == 2:
-    df = df[df['despatch_date'].between(pd.to_datetime(despatch_date_range[0]), pd.to_datetime(despatch_date_range[1]))]
+if len(despatch_date_range) == 0:
+    despatch_start = default_start
+    despatch_end = today
+elif len(despatch_date_range) == 1:
+    despatch_start = despatch_end = pd.to_datetime(despatch_date_range[0])
+else:
+    despatch_start, despatch_end = pd.to_datetime(despatch_date_range)
 
+# ------------------ CHANNEL FILTER ------------------
+channels = sorted(df['order_channel'].dropna().unique().tolist())
+all_option = "Select All"
+channels_with_all = [all_option] + channels
+
+selected_channels = st.multiselect("📦 Select Sales Channel(s)", options=channels_with_all, default=all_option)
+
+# If "Select All" is selected, show all channels
+if all_option in selected_channels:
+    selected_channels = channels
+
+# ------------------ APPLY FILTERS ------------------
+df = df[
+    (df['order_channel'].isin(selected_channels)) &
+    (df['order_date'].between(order_start, order_end)) &
+    (df['despatch_date'].between(despatch_start, despatch_end))
+]
+
+# ------------------ BUSINESS METRICS ------------------
 dedup_orders = df.drop_duplicates(subset='order_id')
 
 total_orders = dedup_orders['order_id'].nunique()
@@ -73,7 +100,7 @@ col3.metric("📦 Avg Order Value", f"£ {avg_order_value:,.2f}")
 col4.metric("🔢 Unique SKUs", unique_product_skus)
 col5.metric("📦 Total Quantity Ordered", total_quantity_ordered)
 
-# Charts
+# ------------------ VISUALIZATIONS ------------------
 st.subheader("📈 Revenue Trend Over Time")
 df_line = dedup_orders.groupby('order_date')['order_value'].sum().reset_index()
 fig_line = px.line(df_line, x='order_date', y='order_value', title="Order Value Over Time")
@@ -85,17 +112,17 @@ channel_summary = dedup_orders.groupby('order_channel').agg(
 ).reset_index()
 
 st.subheader("📊 Total Orders Value by Channel")
-fig = px.bar(channel_summary, x="order_channel", y="total_orders_value", text="total_orders_value")
-st.plotly_chart(fig, use_container_width=True)
+fig_value_bar = px.bar(channel_summary, x="order_channel", y="total_orders_value", text="total_orders_value")
+st.plotly_chart(fig_value_bar, use_container_width=True)
 
 st.subheader("📦 Orders Count by Channel")
-fig = px.bar(channel_summary, x="order_channel", y="orders_count", text="orders_count")
-st.plotly_chart(fig, use_container_width=True)
+fig_count_bar = px.bar(channel_summary, x="order_channel", y="orders_count", text="orders_count")
+st.plotly_chart(fig_count_bar, use_container_width=True)
 
 st.subheader("🍩 Revenue Share by Channel")
-fig = px.pie(channel_summary, names='order_channel', values='total_orders_value', hole=0.4)
-st.plotly_chart(fig, use_container_width=True)
+fig_donut_value = px.pie(channel_summary, names='order_channel', values='total_orders_value', hole=0.4)
+st.plotly_chart(fig_donut_value, use_container_width=True)
 
 st.subheader("🍩 Orders Count Share by Channel")
-fig = px.pie(channel_summary, names='order_channel', values='orders_count', hole=0.4)
-st.plotly_chart(fig, use_container_width=True)
+fig_donut_count = px.pie(channel_summary, names='order_channel', values='orders_count', hole=0.4)
+st.plotly_chart(fig_donut_count, use_container_width=True)
