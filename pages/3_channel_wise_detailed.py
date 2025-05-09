@@ -47,7 +47,7 @@ selected_channels = st.multiselect("📦 Select Sales Channel(s)", options=chann
 
 # Logic for 'Select All'
 if all_option in selected_channels:
-    selected_channels = channels  # Use all real channels
+    selected_channels = channels
 
 filtered_df = df[df['order_channel'].isin(selected_channels)]
 
@@ -85,14 +85,12 @@ col3.metric("📦 Avg Order Value", f"£ {avg_order_value:,.2f}")
 col4.metric("🔢 Unique SKUs Sold", unique_skus)
 
 # ------------------ SKU SUMMARY ------------------
-# Use deduplication based on order_id for SKU aggregation
-dedup_df = filtered_df.drop_duplicates(subset=["order_id", "product_sku"])
-
 sku_summary = (
-    dedup_df.groupby(['product_sku', 'product_name'])
+    filtered_df.groupby(['product_sku', 'product_name'])
     .agg(
         sold_qty=('product_qty', 'sum'),
-        revenue=('product_price', lambda x: (x * dedup_df.loc[x.index, 'product_qty']).sum())
+        revenue=('product_price', lambda x: (x * filtered_df.loc[x.index, 'product_qty']).sum()),
+        unique_orders=('order_id', pd.Series.nunique)
     )
     .reset_index()
 )
@@ -101,14 +99,14 @@ sku_summary = (
 st.markdown(f"### 🔝 Top {top_n} Most Sold SKUs")
 st.dataframe(
     sku_summary.sort_values(by='sold_qty', ascending=False)
-    .head(top_n)[['product_sku', 'product_name', 'sold_qty', 'revenue']],
+    .head(top_n)[['product_sku', 'product_name', 'sold_qty', 'revenue', 'unique_orders']],
     use_container_width=True
 )
 
 st.markdown(f"### 🔻 Bottom {top_n} Least Sold SKUs")
 st.dataframe(
     sku_summary.sort_values(by='sold_qty', ascending=True)
-    .head(top_n)[['product_sku', 'product_name', 'sold_qty', 'revenue']],
+    .head(top_n)[['product_sku', 'product_name', 'sold_qty', 'revenue', 'unique_orders']],
     use_container_width=True
 )
 
