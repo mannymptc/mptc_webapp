@@ -21,8 +21,6 @@ def connect_db():
         "PWD=Mptc@2025"
     )
 
-conn = connect_db()
-
 # ------------------ LOAD DATA FUNCTION ------------------
 @st.cache_data
 def load_data(start_date_str=None, end_date_str=None):
@@ -53,7 +51,14 @@ def load_data(start_date_str=None, end_date_str=None):
     ORDER BY total_orders_value DESC;
     """
 
-    return pd.read_sql(query, conn)
+    try:
+        conn = connect_db()
+        df = pd.read_sql(query, conn)
+        conn.close()
+        return df
+    except Exception as e:
+        st.error(f"❌ Database connection failed: {e}")
+        return pd.DataFrame()
 
 # ------------------ SIDEBAR DATE FILTER ------------------
 st.sidebar.header("Select Despatch Date Range")
