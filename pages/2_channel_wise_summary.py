@@ -61,18 +61,22 @@ def load_data(start_date_str=None, end_date_str=None):
         return pd.DataFrame()
 
 # ------------------ SIDEBAR DATE FILTER ------------------
-st.sidebar.header("Select Despatch Date Range")
+st.sidebar.header("📅 Select Despatch Date Range")
 selected_range = st.sidebar.date_input("Despatch Date Range", [])
 
-if len(selected_range) == 1:
-    start_date = end_date = selected_range[0]
-elif len(selected_range) == 2:
-    start_date, end_date = selected_range
-else:
-    start_date = end_date = None
+today = pd.to_datetime("today").normalize()
+default_start = today - timedelta(days=30)
 
-start_date_str = start_date.strftime("%Y-%m-%d") if start_date else None
-end_date_str = end_date.strftime("%Y-%m-%d") if end_date else None
+if len(selected_range) == 0:
+    start_date = default_start
+    end_date = today
+elif len(selected_range) == 1:
+    start_date = end_date = selected_range[0]
+else:
+    start_date, end_date = selected_range
+
+start_date_str = start_date.strftime("%Y-%m-%d")
+end_date_str = end_date.strftime("%Y-%m-%d")
 
 # ------------------ LOAD DATA ------------------
 df = load_data(start_date_str, end_date_str)
