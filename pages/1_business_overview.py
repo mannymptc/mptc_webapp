@@ -14,7 +14,8 @@ def connect_db():
         "SERVER=mptcecommerce-sql-server.database.windows.net;"
         "DATABASE=mptcecommerce-db;"
         "UID=mptcadmin;"
-        "PWD=Mptc@2025"
+        "PWD=Mptc@2025;"
+        "Connection Timeout=30"
     )
 
 # ------------------ LOAD DATA ------------------
@@ -27,6 +28,7 @@ def load_data():
                order_cust_postcode, product_sku, product_name, product_qty, customer_name, 
                product_price, order_courier_service
         FROM OrdersDespatch
+        WHERE order_date >= DATEADD(DAY, -30, GETDATE())
         """
         df = pd.read_sql(query, conn)
         conn.close()
@@ -72,8 +74,6 @@ all_option = "Select All"
 channels_with_all = [all_option] + channels
 
 selected_channels = st.multiselect("📦 Select Sales Channel(s)", options=channels_with_all, default=all_option)
-
-# If "Select All" is selected, show all channels
 if all_option in selected_channels:
     selected_channels = channels
 
@@ -86,7 +86,6 @@ df = df[
 
 # ------------------ BUSINESS METRICS ------------------
 dedup_orders = df.drop_duplicates(subset='order_id')
-
 total_orders = dedup_orders['order_id'].nunique()
 total_revenue = dedup_orders['order_value'].sum()
 avg_order_value = dedup_orders['order_value'].mean()
