@@ -52,7 +52,7 @@ def get_range_from_option(option, available_dates):
 # ------------------ DATE FILTER UI ------------------
 st.sidebar.header("📅 Select Despatch Date")
 selected_range = st.sidebar.date_input("Despatch Date Range", [])
-quick_range = st.sidebar.selectbox("🚀 Quick Despatch Range", [
+quick_range = st.sidebar.selectbox("🕒 Quick Despatch Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
 
