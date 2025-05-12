@@ -184,7 +184,11 @@ with tab2:
         else:
             st.caption("Showing SKUs not sold in the selected time window(s):")
             dead_stock_sorted = dead_stock.sort_values(by="Days Since Last Sale", ascending=True)
-            st.dataframe(dead_stock_sorted[['product_sku', 'product_name', 'Last Sold', 'Days Since Last Sale']].head(25), use_container_width=True)
+            st.dataframe(
+                dead_stock_sorted[['product_sku', 'product_name', 'Last Sold', 'Days Since Last Sale']],
+                use_container_width=True,
+                height=800  # adjust as needed to show ~25 rows without scrolling
+            )
 
             csv_dead = dead_stock.to_csv(index=False).encode("utf-8")
             st.download_button("⬇️ Download Dead Stock CSV", csv_dead, file_name="dead_stock.csv", mime="text/csv")
