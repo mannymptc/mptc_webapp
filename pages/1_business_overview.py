@@ -60,7 +60,7 @@ despatch_date_range = st.sidebar.date_input("Despatch Date Range", [])
 order_quick = st.sidebar.selectbox("🕒 Quick Order Date Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
-despatch_quick = st.sidebar.selectbox("🚚 Quick Despatch Date Range", [
+despatch_quick = st.sidebar.selectbox("🕒 Quick Despatch Date Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
 
@@ -68,11 +68,10 @@ despatch_quick = st.sidebar.selectbox("🚚 Quick Despatch Date Range", [
 def get_range_from_option(option, available_dates):
     if len(available_dates) == 0:
         return None, None
-    today = max(available_dates)  # Use max date in dataset
+    today = max(available_dates)
+    
     if option == "Yesterday":
-        prev_dates = [d for d in available_dates if d < today]
-        target = max(prev_dates) if prev_dates else today
-        return target, target
+        return today, today  # Show latest date with data
     elif option == "Last 7 Days":
         return today - timedelta(days=6), today
     elif option == "Last 30 Days":
