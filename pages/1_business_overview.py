@@ -9,20 +9,27 @@ st.title("🏭 Channel-wise Overview Dashboard")
 
 # ------------------ DATABASE CONNECTION ------------------
 def connect_db():
-    return pyodbc.connect(
-        "DRIVER={ODBC Driver 17 for SQL Server};"
-        "SERVER=mptcecommerce-sql-server.database.windows.net;"
-        "DATABASE=mptcecommerce-db;"
-        "UID=mptcadmin;"
-        "PWD=Mptc@2025;"
-        "Connection Timeout=30"
-    )
+    try:
+        return pyodbc.connect(
+            "DRIVER={ODBC Driver 17 for SQL Server};"
+            "SERVER=mptcecommerce-sql-server.database.windows.net;"
+            "DATABASE=mptcecommerce-db;"
+            "UID=mptcadmin;"
+            "PWD=Mptc@2025;"
+            "Connection Timeout=30"
+        )
+    except Exception as e:
+        st.error(f"❌ Database connection failed: {e}")
+        return None
 
 # ------------------ LOAD DATA ------------------
 @st.cache_data
 def load_data():
+    conn = connect_db()
+    if conn is None:
+        return pd.DataFrame()
+    
     try:
-        conn = connect_db()
         query = """
         SELECT order_id, order_channel, order_date, despatch_date, order_value, 
                order_cust_postcode, product_sku, product_name, product_qty, customer_name, 
@@ -34,7 +41,7 @@ def load_data():
         conn.close()
         return df
     except Exception as e:
-        st.error(f"❌ Database connection failed: {e}")
+        st.error(f"❌ Query execution failed: {e}")
         return pd.DataFrame()
 
 df = load_data()
