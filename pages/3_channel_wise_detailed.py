@@ -57,14 +57,14 @@ quick_range = st.sidebar.selectbox("🚀 Quick Despatch Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
 
-def get_range_from_option(option, available_dates):
-    if not available_dates:
+def get_range_from_option(option, df_date_col):
+    if df_date_col.empty:
         return None, None
 
-    latest_date = max(available_dates)
+    all_dates = sorted(df_date_col.dt.normalize().dropna().unique())
+    latest_date = max(all_dates)
 
     if option == "Yesterday":
-        # Always use the latest available date
         return latest_date, latest_date
     elif option == "Last 7 Days":
         return latest_date - timedelta(days=6), latest_date
@@ -76,12 +76,11 @@ def get_range_from_option(option, available_dates):
         return latest_date - relativedelta(months=6), latest_date
     elif option == "Last 12 Months":
         return latest_date - relativedelta(months=12), latest_date
-    return None, None
-
-available_dates = sorted(df['despatch_date'].dt.normalize().unique())
+    else:
+        return None, None
 
 if quick_range != "None":
-    start_date, end_date = get_range_from_option(quick_range, available_dates)
+    start_date, end_date = get_range_from_option(quick_range, df['despatch_date'])
 elif len(selected_range) == 1:
     start_date = end_date = pd.to_datetime(selected_range[0])
 elif len(selected_range) == 2:
