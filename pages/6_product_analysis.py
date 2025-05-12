@@ -52,59 +52,22 @@ df = load_data()
 if df.empty:
     st.stop()
 
-# ------------------ TOP PRODUCT FILTERS ------------------
-st.markdown("### 🎯 Filter Products")
-
-sku_list = sorted(df['product_sku'].dropna().unique().tolist())
-name_list = sorted(df['product_name'].dropna().unique().tolist())
-category_list = sorted(df['product_category'].dropna().unique().tolist())
-
-# Get top 5 SKUs with real sales
-top5_skus = (
-    df.groupby('product_sku')['product_qty'].sum()
-    .sort_values(ascending=False)
-    .head(5)
-    .index.tolist()
-)
-
-col1, col2, col3 = st.columns(3)
-selected_skus = col1.multiselect("Select SKU(s)", sku_list, default=top5_skus)
-selected_names = col2.multiselect("Select Product Name(s)", name_list)
-selected_categories = col3.multiselect("Select Category(s)", category_list)
-
 # ------------------ SIDEBAR DATE FILTER ------------------
 st.sidebar.header("📅 Order Date Filter")
 all_dates = df['order_date'].dt.normalize().dropna().unique()
 selected_date_range = st.sidebar.date_input("Select Order Date Range", [min(all_dates), max(all_dates)])
-
-# ------------------ FILTER FINAL DATAFRAME ------------------
 start_date = pd.to_datetime(selected_date_range[0])
 end_date = pd.to_datetime(selected_date_range[1])
-
-filtered_df = df[
-    df['product_sku'].isin(selected_skus) &
-    (df['product_name'].isin(selected_names) if selected_names else True) &
-    (df['product_category'].isin(selected_categories) if selected_categories else True) &
-    (df['order_date'].between(start_date, end_date))
-]
-
-# ------------------ DEBUG INFO ------------------
-with st.expander("🛠 Debug Info (optional)"):
-    st.write("Start Date:", start_date)
-    st.write("End Date:", end_date)
-    st.write("Selected SKUs:", selected_skus)
-    st.write("Selected Names:", selected_names)
-    st.write("Selected Categories:", selected_categories)
-    st.write("Filtered Rows:", len(filtered_df))
 
 # ------------------ TABS ------------------
 tab1, tab2 = st.tabs(["📊 Sales History", "🧊 Unsold / Dead Stock"])
 
+# ------------------ TAB 1: SALES HISTORY ------------------
 with tab1:
     st.subheader("📈 Sales Summary")
 
-    # ------------------ TAB 1 FILTERS ------------------
-    st.markdown("### 🎯 Filter Products (Tab 1 Only)")
+    # ------------------ FILTERS ------------------
+    st.markdown("### 🎯 Filter Products (Only for Tab 1)")
 
     sku_list = sorted(df['product_sku'].dropna().unique().tolist())
     name_list = sorted(df['product_name'].dropna().unique().tolist())
@@ -121,10 +84,6 @@ with tab1:
     selected_skus = col1.multiselect("Select SKU(s)", sku_list, default=top5_skus)
     selected_names = col2.multiselect("Select Product Name(s)", name_list)
     selected_categories = col3.multiselect("Select Category(s)", category_list)
-
-    # ------------------ DATE RANGE (shared from sidebar) ------------------
-    start_date = pd.to_datetime(selected_date_range[0])
-    end_date = pd.to_datetime(selected_date_range[1])
 
     filtered_df = df[
         df['product_sku'].isin(selected_skus) &
@@ -174,7 +133,6 @@ with tab1:
             .reset_index()
             .sort_values(by='total_revenue', ascending=False)
         )
-
         st.dataframe(channel_summary, use_container_width=True)
 
         # ------------------ RAW DATA ------------------
