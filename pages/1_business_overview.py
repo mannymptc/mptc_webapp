@@ -63,7 +63,7 @@ despatch_date_range = st.sidebar.date_input("Despatch Date Range", [])
 order_quick = st.sidebar.selectbox("🕒 Quick Order Date Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
-despatch_quick = st.sidebar.selectbox("🚚 Quick Despatch Date Range", [
+despatch_quick = st.sidebar.selectbox("🕒 Quick Despatch Date Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
 
