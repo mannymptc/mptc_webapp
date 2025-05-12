@@ -13,13 +13,18 @@ st.title("🚚 Daily Despatch Summary")
 
 # ------------------ DATABASE CONNECTION ------------------
 def connect_db():
-    return pyodbc.connect(
-        "DRIVER={ODBC Driver 17 for SQL Server};"
-        "SERVER=mptcecommerce-sql-server.database.windows.net;"
-        "DATABASE=mptcecommerce-db;"
-        "UID=mptcadmin;"
-        "PWD=Mptc@2025"
-    )
+    try:
+        return pyodbc.connect(
+            "DRIVER={ODBC Driver 17 for SQL Server};"
+            "SERVER=mptcecommerce-sql-server.database.windows.net;"
+            "DATABASE=mptcecommerce-db;"
+            "UID=mptcadmin;"
+            "PWD=Mptc@2025;"
+            "Connection Timeout=30"
+        )
+    except Exception as e:
+        st.error(f"❌ Database connection failed: {e}")
+        return None
 
 # ------------------ LOAD DATA FUNCTION ------------------
 @st.cache_data
@@ -51,13 +56,16 @@ def load_data(start_date_str=None, end_date_str=None):
     ORDER BY total_orders_value DESC;
     """
 
+    conn = connect_db()
+    if conn is None:
+        return pd.DataFrame()
+
     try:
-        conn = connect_db()
         df = pd.read_sql(query, conn)
         conn.close()
         return df
     except Exception as e:
-        st.error(f"❌ Database connection failed: {e}")
+        st.error(f"❌ Query failed: {e}")
         return pd.DataFrame()
 
 # ------------------ SIDEBAR DATE FILTER ------------------
