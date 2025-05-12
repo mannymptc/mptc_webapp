@@ -184,30 +184,6 @@ with tab2:
         else:
             st.caption("Showing SKUs not sold in the selected time window(s):")
             dead_stock_sorted = dead_stock.sort_values(by="Days Since Last Sale", ascending=True)
-
-            import plotly.express as px
-
-            # Sort and prepare data
-            dead_stock_sorted = dead_stock.sort_values(by="Days Since Last Sale", ascending=True)
-            plot_df = dead_stock_sorted.head(25)  # limit to top 25 entries for clean chart
-            
-            # Build bar chart
-            bar_fig = px.bar(
-                plot_df,
-                x="product_name",
-                y="Days Since Last Sale",
-                title="🧊 Days Since Last Sale (Top 25 Unsold SKUs)",
-                labels={"product_name": "Product", "Days Since Last Sale": "Days"},
-                text="Days Since Last Sale"
-            )
-            
-            bar_fig.update_traces(textposition="outside")
-            bar_fig.update_layout(xaxis_tickangle=-45, height=500)
-            
-            # Display chart
-            st.plotly_chart(bar_fig, use_container_width=True)
-
-            
             st.dataframe(dead_stock_sorted[['product_sku', 'product_name', 'Last Sold', 'Days Since Last Sale']].head(25), use_container_width=True)
 
             csv_dead = dead_stock.to_csv(index=False).encode("utf-8")
