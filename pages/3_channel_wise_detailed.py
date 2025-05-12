@@ -66,6 +66,7 @@ def get_range_from_option(option, df_date_col):
     latest_date = max(all_dates)
 
     if option == "Yesterday":
+        # Use the latest date that has data
         return latest_date, latest_date
     elif option == "Last 7 Days":
         return latest_date - timedelta(days=6), latest_date
@@ -93,6 +94,8 @@ else:
 
 # Apply the date filter to DataFrame
 df['despatch_date'] = pd.to_datetime(df['despatch_date'])
+st.caption(f"Debug: Filtering from {start_date.date()} to {end_date.date()}")
+st.caption(f"Max despatch date in data: {df['despatch_date'].max().date()}")
 df = df[df['despatch_date'].between(start_date, end_date)]
 
 # ------------------ CHANNEL FILTER ------------------
