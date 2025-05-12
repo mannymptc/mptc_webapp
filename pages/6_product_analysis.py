@@ -59,10 +59,13 @@ all_dates = df['order_date'].dt.normalize().dropna().unique()
 selected_date_range = st.sidebar.date_input("Order Date Range", [min(all_dates), max(all_dates)])
 
 # Final filtered data
+start_date = pd.to_datetime(selected_date_range[0])
+end_date = pd.to_datetime(selected_date_range[1])
+
 filtered_df = df[
     (df['product_sku'].isin(selected_skus)) &
     (df['product_name'].isin(selected_names)) &
-    (df['order_date'].between(selected_date_range[0], selected_date_range[1]))
+    (df['order_date'].between(start_date, end_date))
 ]
 
 # ------------------ TABS ------------------
