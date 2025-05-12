@@ -65,7 +65,7 @@ category_list = sorted(df['product_category'].dropna().unique().tolist())
 top5_skus = (
     df.groupby('product_sku')['product_qty'].sum()
     .sort_values(ascending=False)
-    .head(5)
+    .head(100)
     .index.tolist()
 )
 
