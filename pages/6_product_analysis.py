@@ -134,12 +134,21 @@ with tab1:
     col8.metric("💵 Avg Rev / Week", f"£ {avg_rev_week:.2f}")
     col9.metric("💵 Avg Rev / Month", f"£ {avg_rev_month:.2f}")
 
-       # ------------------ 5. Raw Data + Download ------------------
-    st.markdown("### 📃 Filtered Sales Data")
+    # ------------------ 5. Raw Data + Download ------------------
+    row_col1, row_col2 = st.columns([0.8, 0.2])
+    with row_col1:
+        st.markdown("### 📃 Filtered Sales Data")
+    with row_col2:
+        csv_data = filtered_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "⬇️ Download CSV",
+            csv_data,
+            file_name="filtered_sales.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
     st.dataframe(filtered_df.head(10), use_container_width=True)
-
-    csv_data = filtered_df.to_csv(index=False).encode("utf-8")
-    st.download_button("⬇️ Download Full Filtered Sales CSV", csv_data, file_name="filtered_sales.csv", mime="text/csv")
 
      # ------------------ 4. Channel-wise Summary ------------------
     st.markdown("### 📊 Channel-wise Sales Summary")
