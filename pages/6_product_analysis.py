@@ -144,7 +144,7 @@ with tab2:
     st.subheader("🧊 Dead or Unsold Stock")
 
     last_sold = df.groupby(['product_sku', 'product_name'])['order_date'].max().reset_index()
-    last_sold['Days Since Last Sale'] = (datetime.now().date() - last_sold['order_date'].dt.date).dt.days
+    last_sold['Days Since Last Sale'] = (pd.Timestamp.now().normalize() - last_sold['order_date']).dt.days
     last_sold['Last Sold'] = last_sold['order_date'].dt.strftime('%Y-%m-%d')
 
     unsold_filter = st.selectbox(
