@@ -153,7 +153,7 @@ with tab2:
 
     # Define ranges for unsold buckets
     unsold_buckets = {
-        "7 to 1 month": (7, 30),
+        "7 days to 1 month": (7, 30),
         "1 to 3 months": (31, 90),
         "3 to 6 months": (91, 180),
         "6 months to 1 year": (181, 365),
