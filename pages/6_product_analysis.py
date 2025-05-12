@@ -69,9 +69,13 @@ with tab1:
     # ------------------ 1. Smart Search Filters ------------------
     st.markdown("### 🎯 Smart Search Filters")
 
-    sku_input = st.text_input("🔍 Search by Product SKU (comma-separated)", placeholder="e.g. abc, 123, xyz")
-    name_input = st.text_input("🔍 Search by Product Name (comma-separated)", placeholder="e.g. bottle, charger")
-    cat_input = st.text_input("🔍 Search by Product Category (comma-separated)", placeholder="e.g. electronics, bags")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        sku_input = st.text_input("🔍 SKU Filter", placeholder="e.g. abc, 123, xyz")
+    with col2:
+        name_input = st.text_input("🔍 Name Filter", placeholder="e.g. bottle, charger")
+    with col3:
+        cat_input = st.text_input("🔍 Category Filter", placeholder="e.g. electronics, bags")
 
     sku_terms = [term.strip().lower() for term in sku_input.split(',') if term.strip()]
     name_terms = [term.strip().lower() for term in name_input.split(',') if term.strip()]
@@ -148,7 +152,7 @@ with tab1:
             use_container_width=True
         )
     
-    st.dataframe(filtered_df.head(10), use_container_width=True)
+    st.dataframe(filtered_df, use_container_width=True, height=500)
 
      # ------------------ 4. Channel-wise Summary ------------------
     st.markdown("### 📊 Channel-wise Sales Summary")
