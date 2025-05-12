@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 import pyodbc
-from datetime import date, timedelta
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 st.set_page_config(page_title="📋 Channel-wise Detailed Report", layout="wide")
 st.title("🧾 Channel-wise Detailed Analytics")
@@ -27,12 +28,12 @@ def load_data():
     conn = connect_db()
     if conn is None:
         return pd.DataFrame()
-
     try:
         query = """
         SELECT order_id, order_channel, order_value, order_cust_postcode, product_sku, 
                product_name, product_qty, product_price, despatch_date
         FROM OrdersDespatch
+        WHERE despatch_date >= DATEADD(MONTH, -12, GETDATE())
         """
         df = pd.read_sql(query, conn)
         conn.close()
@@ -41,27 +42,52 @@ def load_data():
         st.error(f"❌ Query failed: {e}")
         return pd.DataFrame()
 
-# ------------------ MAIN LOGIC ------------------
 df = load_data()
 if df.empty:
     st.stop()
 
-# ------------------ SIDEBAR: DATE FILTER ------------------
-st.sidebar.header("📅 Filter by Despatch Date")
-selected_dates = st.sidebar.date_input("Despatch Date Range", [])
-
-today = pd.to_datetime("today").normalize()
-default_start = today - timedelta(days=30)
-
-if len(selected_dates) == 0:
-    start_date = default_start
-    end_date = today
-elif len(selected_dates) == 1:
-    start_date = end_date = pd.to_datetime(selected_dates[0])
-else:
-    start_date, end_date = pd.to_datetime(selected_dates)
-
 df['despatch_date'] = pd.to_datetime(df['despatch_date'])
+
+# ------------------ SIDEBAR: DESPATCH DATE FILTERS ------------------
+st.sidebar.header("📅 Filter by Despatch Date")
+
+# Manual + quick filters
+selected_range = st.sidebar.date_input("Despatch Date Range", [])
+quick_range = st.sidebar.selectbox("🚀 Quick Despatch Range", [
+    "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
+])
+
+def get_range_from_option(option, available_dates):
+    if not available_dates:
+        return None, None
+    today = max(available_dates)
+    if option == "Yesterday":
+        prev_dates = [d for d in available_dates if d < today]
+        return max(prev_dates), max(prev_dates) if prev_dates else today
+    elif option == "Last 7 Days":
+        return today - timedelta(days=6), today
+    elif option == "Last 30 Days":
+        return today - timedelta(days=29), today
+    elif option == "Last 3 Months":
+        return today - relativedelta(months=3), today
+    elif option == "Last 6 Months":
+        return today - relativedelta(months=6), today
+    elif option == "Last 12 Months":
+        return today - relativedelta(months=12), today
+    return None, None
+
+available_dates = sorted(df['despatch_date'].dt.normalize().unique())
+
+if quick_range != "None":
+    start_date, end_date = get_range_from_option(quick_range, available_dates)
+elif len(selected_range) == 1:
+    start_date = end_date = pd.to_datetime(selected_range[0])
+elif len(selected_range) == 2:
+    start_date, end_date = pd.to_datetime(selected_range)
+else:
+    end_date = max(available_dates) if available_dates else datetime.today()
+    start_date = end_date - timedelta(days=30)
+
 df = df[df['despatch_date'].between(start_date, end_date)]
 
 # ------------------ CHANNEL FILTER ------------------
@@ -70,7 +96,6 @@ all_option = "Select All"
 channels_with_all = [all_option] + channels
 
 selected_channels = st.multiselect("📦 Select Sales Channel(s)", options=channels_with_all, default=all_option)
-
 if all_option in selected_channels:
     selected_channels = channels
 
@@ -106,7 +131,6 @@ sku_summary = (
     .reset_index()
 )
 
-# ------------------ TOP / BOTTOM SKU TABLES ------------------
 st.markdown(f"### 🔝 Top {top_n} Most Sold SKUs")
 st.dataframe(
     sku_summary.sort_values(by='sold_qty', ascending=False)
