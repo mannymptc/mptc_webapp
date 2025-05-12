@@ -100,9 +100,38 @@ with st.expander("🛠 Debug Info (optional)"):
 # ------------------ TABS ------------------
 tab1, tab2 = st.tabs(["📊 Sales History", "🧊 Unsold / Dead Stock"])
 
-# ------------------ TAB 1: SALES HISTORY ------------------
 with tab1:
     st.subheader("📈 Sales Summary")
+
+    # ------------------ TAB 1 FILTERS ------------------
+    st.markdown("### 🎯 Filter Products (Tab 1 Only)")
+
+    sku_list = sorted(df['product_sku'].dropna().unique().tolist())
+    name_list = sorted(df['product_name'].dropna().unique().tolist())
+    category_list = sorted(df['product_category'].dropna().unique().tolist())
+
+    top5_skus = (
+        df.groupby('product_sku')['product_qty'].sum()
+        .sort_values(ascending=False)
+        .head(5)
+        .index.tolist()
+    )
+
+    col1, col2, col3 = st.columns(3)
+    selected_skus = col1.multiselect("Select SKU(s)", sku_list, default=top5_skus)
+    selected_names = col2.multiselect("Select Product Name(s)", name_list)
+    selected_categories = col3.multiselect("Select Category(s)", category_list)
+
+    # ------------------ DATE RANGE (shared from sidebar) ------------------
+    start_date = pd.to_datetime(selected_date_range[0])
+    end_date = pd.to_datetime(selected_date_range[1])
+
+    filtered_df = df[
+        df['product_sku'].isin(selected_skus) &
+        (df['product_name'].isin(selected_names) if selected_names else True) &
+        (df['product_category'].isin(selected_categories) if selected_categories else True) &
+        (df['order_date'].between(start_date, end_date))
+    ]
 
     if filtered_df.empty:
         st.warning("No data available for selected filters.")
@@ -133,7 +162,23 @@ with tab1:
         col8.metric("💵 Avg Rev / Week", f"£ {avg_rev_week:.2f}")
         col9.metric("💵 Avg Rev / Month", f"£ {avg_rev_month:.2f}")
 
-        st.markdown("### 📃 Filtered Sales Data")
+        # ------------------ CHANNEL-WISE SUMMARY ------------------
+        st.markdown("### 📊 Channel-wise Sales Summary")
+        channel_summary = (
+            filtered_df.groupby('order_channel')
+            .agg(
+                total_orders=('order_id', pd.Series.nunique),
+                total_qty=('product_qty', 'sum'),
+                total_revenue=('sale_amount', 'sum')
+            )
+            .reset_index()
+            .sort_values(by='total_revenue', ascending=False)
+        )
+
+        st.dataframe(channel_summary, use_container_width=True)
+
+        # ------------------ RAW DATA ------------------
+        st.markdown("### 📃 Raw Sales Data")
         st.dataframe(filtered_df.head(10), use_container_width=True)
 
         csv_sales = filtered_df.to_csv(index=False).encode("utf-8")
