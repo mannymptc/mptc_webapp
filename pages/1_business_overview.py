@@ -68,22 +68,27 @@ despatch_quick = st.sidebar.selectbox("🕒 Quick Despatch Date Range", [
 def get_range_from_option(option, available_dates):
     if len(available_dates) == 0:
         return None, None
+
     today = max(available_dates)
-    
+
     if option == "Yesterday":
-        return today, today  # Show latest date with data
+        return today, today
     elif option == "Last 7 Days":
         return today - timedelta(days=6), today
     elif option == "Last 30 Days":
         return today - timedelta(days=29), today
     elif option == "Last 3 Months":
-        return today - relativedelta(months=3), today
+        start = today - relativedelta(months=3)
     elif option == "Last 6 Months":
-        return today - relativedelta(months=6), today
+        start = today - relativedelta(months=6)
     elif option == "Last 12 Months":
-        return today - relativedelta(months=12), today
+        start = today - relativedelta(months=12)
     else:
         return None, None
+
+    # Ensure returned dates exist in available data
+    start = min([d for d in available_dates if d >= start], default=min(available_dates))
+    return start, today
 
 # ------------------ Determine Final Filter Ranges ------------------
 order_dates = sorted(df['order_date'].dropna().unique())
