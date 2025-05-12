@@ -170,7 +170,7 @@ with tab2:
     last_sold['Bucket'] = last_sold['Days Since Last Sale'].apply(assign_bucket)
 
     # ------------------ 1. Summary KPI for ALL Buckets ------------------
-    st.markdown("### 📦 Unique SKU Count by Time Bucket")
+    st.markdown("### 📦 Unique SKU Count Unsold by Time Bucket")
     bucket_order = list(unsold_buckets.keys())
     bucket_counts = (
         last_sold.groupby('Bucket')['product_sku'].nunique()
@@ -198,18 +198,21 @@ with tab2:
         if dead_stock.empty:
             st.info("✅ No dead stock found for selected range(s).")
         else:
-            # ------------------ 3. Data Table ------------------
-            st.markdown("### 🧾 Dead Stock List")
+            # ------------------ 3. Data Table + Inline Download ------------------
             dead_stock_sorted = dead_stock.sort_values(by="Days Since Last Sale", ascending=True)
+            
+            row1_col1, row1_col2 = st.columns([0.8, 0.2])
+            with row1_col1:
+                st.markdown("### 🧾 Dead Stock List")
+            with row1_col2:
+                csv_dead = dead_stock_sorted.to_csv(index=False).encode("utf-8")
+                st.download_button("⬇️ Download CSV", csv_dead, file_name="dead_stock.csv", mime="text/csv", use_container_width=True)
+            
             st.dataframe(
                 dead_stock_sorted[['product_sku', 'product_name', 'Bucket', 'Last Sold', 'Days Since Last Sale']],
                 use_container_width=True,
-                height=500
+                height=800
             )
-
-            # ------------------ Download Button ------------------
-            csv_dead = dead_stock_sorted.to_csv(index=False).encode("utf-8")
-            st.download_button("⬇️ Download Dead Stock CSV", csv_dead, file_name="dead_stock.csv", mime="text/csv")
 
     # ------------------ 4. Charts (Bar + Box Side-by-Side) ------------------
     import plotly.express as px
