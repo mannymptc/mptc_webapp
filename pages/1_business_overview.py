@@ -55,12 +55,12 @@ df['despatch_date'] = pd.to_datetime(df['despatch_date']).dt.normalize()
 st.sidebar.header("📅 Filter by Date")
 
 despatch_date_range = st.sidebar.date_input("Despatch Date Range", [])
-despatch_quick = st.sidebar.selectbox("🚚 Quick Despatch Date Range", [
+despatch_quick = st.sidebar.selectbox("🕒 Quick Despatch Date Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
 
-order_date_range = st.sidebar.date_input("Order Date Range (Optional)", [])
-order_quick = st.sidebar.selectbox("🕒 Quick Order Date Range (Optional)", [
+order_date_range = st.sidebar.date_input("Order Date Range", [])
+order_quick = st.sidebar.selectbox("🕒 Quick Order Date Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
 
@@ -116,7 +116,7 @@ st.caption(f"📦 Despatch Date: {despatch_start.date()} → {despatch_end.date(
 if apply_order_filter:
     st.caption(f"🧾 Order Date: {order_start.date()} → {order_end.date()}")
 else:
-    st.caption("🧾 Order Date: Not applied")
+    st.caption("🧾 Order Date Not Selected")
 
 # ------------------ CHANNEL FILTER ------------------
 channels = sorted(df['order_channel'].dropna().unique().tolist())
