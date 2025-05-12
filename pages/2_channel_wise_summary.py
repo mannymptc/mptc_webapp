@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import pyodbc
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 import plotly.express as px
 import io
 from openpyxl import Workbook
@@ -11,7 +12,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 st.set_page_config(page_title="📦 Channel Despatch Summary", layout="wide")
 st.title("🚚 Daily Despatch Summary")
 
-# ------------------ DATABASE CONNECTION ------------------
+# ------------------ DB CONNECT ------------------
 def connect_db():
     try:
         return pyodbc.connect(
@@ -26,19 +27,66 @@ def connect_db():
         st.error(f"❌ Database connection failed: {e}")
         return None
 
-# ------------------ LOAD DATA FUNCTION ------------------
-@st.cache_data
-def load_data(start_date_str=None, end_date_str=None):
-    if start_date_str and end_date_str:
-        date_filter = f"WHERE CAST(despatch_date AS DATE) >= '{start_date_str}' AND CAST(despatch_date AS DATE) <= '{end_date_str}'"
-    else:
-        date_filter = ""
+# ------------------ DATE FILTER UTILITY ------------------
+def get_range_from_option(option, available_dates):
+    if not available_dates:
+        return None, None
+    today = max(available_dates)
+    if option == "Yesterday":
+        prev = [d for d in available_dates if d < today]
+        return max(prev), max(prev) if prev else today
+    elif option == "Last 7 Days":
+        return today - timedelta(days=6), today
+    elif option == "Last 30 Days":
+        return today - timedelta(days=29), today
+    elif option == "Last 3 Months":
+        return today - relativedelta(months=3), today
+    elif option == "Last 6 Months":
+        return today - relativedelta(months=6), today
+    elif option == "Last 12 Months":
+        return today - relativedelta(months=12), today
+    return None, None
 
+# ------------------ DATE FILTER UI ------------------
+st.sidebar.header("📅 Select Despatch Date")
+selected_range = st.sidebar.date_input("Despatch Date Range", [])
+quick_range = st.sidebar.selectbox("🚀 Quick Despatch Range", [
+    "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
+])
+
+# TEMP LOAD to get available dates
+@st.cache_data
+def load_temp_dates():
+    conn = connect_db()
+    if conn:
+        df = pd.read_sql("SELECT DISTINCT CAST(despatch_date AS DATE) AS despatch_date FROM OrdersDespatch", conn)
+        conn.close()
+        return sorted(pd.to_datetime(df['despatch_date']).unique())
+    return []
+
+available_dates = load_temp_dates()
+
+if quick_range != "None":
+    start_date, end_date = get_range_from_option(quick_range, available_dates)
+elif len(selected_range) == 1:
+    start_date = end_date = selected_range[0]
+elif len(selected_range) == 2:
+    start_date, end_date = selected_range
+else:
+    end_date = max(available_dates) if available_dates else datetime.today()
+    start_date = end_date - timedelta(days=30)
+
+start_date_str = start_date.strftime("%Y-%m-%d")
+end_date_str = end_date.strftime("%Y-%m-%d")
+
+# ------------------ LOAD DATA ------------------
+@st.cache_data
+def load_data(start_date_str, end_date_str):
     query = f"""
     WITH despatch_data AS (
         SELECT DISTINCT order_id, order_channel, despatch_date, order_value
         FROM OrdersDespatch
-        {date_filter}
+        WHERE CAST(despatch_date AS DATE) BETWEEN '{start_date_str}' AND '{end_date_str}'
     ),
     channel_total AS (
         SELECT 
@@ -48,79 +96,39 @@ def load_data(start_date_str=None, end_date_str=None):
         FROM despatch_data
         GROUP BY order_channel
     )
-    SELECT
-        order_channel AS channel,
-        total_orders_value,
-        orders_count
+    SELECT order_channel AS channel, total_orders_value, orders_count
     FROM channel_total
     ORDER BY total_orders_value DESC;
     """
-
     conn = connect_db()
-    if conn is None:
-        return pd.DataFrame()
-
-    try:
+    if conn:
         df = pd.read_sql(query, conn)
         conn.close()
         return df
-    except Exception as e:
-        st.error(f"❌ Query failed: {e}")
-        return pd.DataFrame()
+    return pd.DataFrame()
 
-# ------------------ SIDEBAR DATE FILTER ------------------
-st.sidebar.header("📅 Select Despatch Date Range")
-selected_range = st.sidebar.date_input("Despatch Date Range", [])
-
-today = pd.to_datetime("today").normalize()
-default_start = today - timedelta(days=30)
-
-if len(selected_range) == 0:
-    start_date = default_start
-    end_date = today
-elif len(selected_range) == 1:
-    start_date = end_date = selected_range[0]
-else:
-    start_date, end_date = selected_range
-
-start_date_str = start_date.strftime("%Y-%m-%d")
-end_date_str = end_date.strftime("%Y-%m-%d")
-
-# ------------------ LOAD DATA ------------------
 df = load_data(start_date_str, end_date_str)
 
 if df.empty:
-    st.warning("No orders found for the selected despatch date(s).")
+    st.warning("No orders found.")
     st.stop()
 
-# ------------------ GRAND TOTAL ------------------
+# ------------------ EXCEL EXPORT ------------------
 grand_total_value = df["total_orders_value"].sum()
 grand_total_count = df["orders_count"].sum()
 df.loc[len(df.index)] = ["Grand Total", grand_total_value, grand_total_count]
 
-# ------------------ CREATE EXCEL FILE ------------------
 output = io.BytesIO()
 wb = Workbook()
 ws = wb.active
 ws.title = "Channel Summary"
-
 ws["A1"] = "Selected Despatch Date:"
-if start_date and end_date:
-    ws["B1"] = start_date.strftime("%d-%m-%Y") if start_date == end_date else f"{start_date.strftime('%d-%m-%Y')} to {end_date.strftime('%d-%m-%Y')}"
-else:
-    ws["B1"] = "All Available Dates"
-
+ws["B1"] = f"{start_date.strftime('%d-%m-%Y')} to {end_date.strftime('%d-%m-%Y')}"
 ws["A2"] = "Day:"
-if start_date and end_date:
-    ws["B2"] = start_date.strftime("%A") if start_date == end_date else "Multiple Days"
-else:
-    ws["B2"] = "All Days"
+ws["B2"] = start_date.strftime("%A") if start_date == end_date else "Multiple Days"
+ws["A1"].font = ws["A2"].font = Font(bold=True)
 
-ws["A1"].font = Font(bold=True)
-ws["A2"].font = Font(bold=True)
-
-rows = dataframe_to_rows(df, index=False, header=True)
-for r_idx, row in enumerate(rows, 4):
+for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 4):
     for c_idx, value in enumerate(row, 1):
         cell = ws.cell(row=r_idx, column=c_idx, value=value)
         if r_idx == 4 or row[0] == "Grand Total":
@@ -131,49 +139,25 @@ for r_idx, row in enumerate(rows, 4):
 ws.column_dimensions["A"].width = 30
 ws.column_dimensions["B"].width = 20
 ws.column_dimensions["C"].width = 15
-
 wb.save(output)
 output.seek(0)
 
-# ------------------ HEADER + DOWNLOAD BUTTON ------------------
-left_col, right_col = st.columns([6, 1])
-
-with left_col:
-    if start_date and end_date:
-        if start_date == end_date:
-            st.subheader(f"📋 Channel Summary for {start_date.strftime('%Y-%m-%d')} ({start_date.strftime('%A')})")
-        else:
-            st.subheader(f"📋 Channel Summary from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
-    else:
-        st.subheader("📋 Channel Summary for All Dates")
-
-with right_col:
-    file_name = f"Channel_Summary_{start_date_str or 'All'}_to_{end_date_str or 'All'}.xlsx"
-    st.download_button(
-        label="📅 Download Excel",
-        data=output,
-        file_name=file_name,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-# ------------------ SHOW TABLE ------------------
+# ------------------ DISPLAY ------------------
+st.subheader(f"📋 Channel Summary from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+st.download_button("📅 Download Excel", data=output, file_name=f"Channel_Summary_{start_date_str}_to_{end_date_str}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 st.dataframe(df, use_container_width=True)
 
 # ------------------ CHARTS ------------------
 df_chart = df[df["channel"] != "Grand Total"]
 
 st.subheader("📊 Total Orders Value by Channel")
-fig_value_bar = px.bar(df_chart, x="channel", y="total_orders_value", text="total_orders_value", title="Channel-wise Total Order Value")
-st.plotly_chart(fig_value_bar, use_container_width=True)
+st.plotly_chart(px.bar(df_chart, x="channel", y="total_orders_value", text="total_orders_value"), use_container_width=True)
 
 st.subheader("📦 Orders Count by Channel")
-fig_count_bar = px.bar(df_chart, x="channel", y="orders_count", text="orders_count", title="Channel-wise Orders Count")
-st.plotly_chart(fig_count_bar, use_container_width=True)
+st.plotly_chart(px.bar(df_chart, x="channel", y="orders_count", text="orders_count"), use_container_width=True)
 
 st.subheader("🍩 Revenue Share by Channel")
-fig_donut_value = px.pie(df_chart, names='channel', values='total_orders_value', title='Revenue Share', hole=0.4)
-st.plotly_chart(fig_donut_value, use_container_width=True)
+st.plotly_chart(px.pie(df_chart, names='channel', values='total_orders_value', hole=0.4), use_container_width=True)
 
 st.subheader("🍩 Orders Count Share by Channel")
-fig_donut_count = px.pie(df_chart, names='channel', values='orders_count', title='Orders Count Share', hole=0.4)
-st.plotly_chart(fig_donut_count, use_container_width=True)
+st.plotly_chart(px.pie(df_chart, names='channel', values='orders_count', hole=0.4), use_container_width=True)
