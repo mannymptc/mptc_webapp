@@ -67,30 +67,54 @@ with tab1:
     st.subheader("📈 Sales Summary")
 
     # ------------------ FILTERS ------------------
-    st.markdown("### 🎯 Filter Products (Only for Tab 1)")
+    st.markdown("### 🔍 Search Products")
 
-    sku_list = sorted(df['product_sku'].dropna().unique().tolist())
-    name_list = sorted(df['product_name'].dropna().unique().tolist())
+    col_search, col_scope = st.columns([0.75, 0.25])
+
+    # Search bar input
+    with col_search:
+        search_input = st.text_input(
+            "Enter SKU/Name keywords (e.g. 'blue, bottle, 123')",
+            placeholder="Search by SKU or Product Name..."
+        )
+
+    # Search scope: SKU, Name, or Both
+    with col_scope:
+        search_scope = st.radio("Search in", ["SKU + Name", "SKU only", "Name only"])
+
+    # Process input
+    search_terms = [term.strip().lower() for term in search_input.split(',') if term.strip()]
+
+    # Product category filter (optional)
     category_list = sorted(df['product_category'].dropna().unique().tolist())
+    selected_categories = st.multiselect("Select Product Category(s)", category_list, default=category_list)
 
-    top5_skus = (
-        df.groupby('product_sku')['product_qty'].sum()
-        .sort_values(ascending=False)
-        .head(5)
-        .index.tolist()
-    )
+    # ------------------ DATE FILTER (already from sidebar) ------------------
+    start_date = pd.to_datetime(selected_date_range[0])
+    end_date = pd.to_datetime(selected_date_range[1])
 
-    col1, col2, col3 = st.columns(3)
-    selected_skus = col1.multiselect("Select SKU(s)", sku_list, default=top5_skus)
-    selected_names = col2.multiselect("Select Product Name(s)", name_list)
-    selected_categories = col3.multiselect("Select Category(s)", category_list)
-
+    # ------------------ APPLY FILTERS ------------------
     filtered_df = df[
-        df['product_sku'].isin(selected_skus) &
-        (df['product_name'].isin(selected_names) if selected_names else True) &
-        (df['product_category'].isin(selected_categories) if selected_categories else True) &
+        (df['product_category'].isin(selected_categories)) &
         (df['order_date'].between(start_date, end_date))
     ]
+
+    # Apply search logic if terms entered
+    if search_terms:
+        mask = pd.Series(False, index=filtered_df.index)
+
+        for term in search_terms:
+            if search_scope == "SKU only":
+                match = filtered_df['product_sku'].astype(str).str.lower().str.contains(term)
+            elif search_scope == "Name only":
+                match = filtered_df['product_name'].astype(str).str.lower().str.contains(term)
+            else:  # Both
+                match_sku = filtered_df['product_sku'].astype(str).str.lower().str.contains(term)
+                match_name = filtered_df['product_name'].astype(str).str.lower().str.contains(term)
+                match = match_sku | match_name
+            mask |= match
+
+        filtered_df = filtered_df[mask]
 
     if filtered_df.empty:
         st.warning("No data available for selected filters.")
@@ -106,6 +130,7 @@ with tab1:
         avg_qty_month = avg_qty_day * 30
         avg_rev_month = avg_rev_day * 30
 
+        # ------------------ KPIs ------------------
         col1, col2, col3 = st.columns(3)
         col1.metric("🔢 Total Quantity Sold", int(total_qty))
         col2.metric("💰 Total Revenue", f"£ {total_revenue:,.2f}")
@@ -137,7 +162,7 @@ with tab1:
 
         # ------------------ RAW DATA ------------------
         st.markdown("### 📃 Raw Sales Data")
-        st.dataframe(filtered_df.head(10), use_container_width=True)
+        st.dataframe(filtered_df.head(25), use_container_width=True)
 
         csv_sales = filtered_df.to_csv(index=False).encode("utf-8")
         st.download_button("⬇️ Download Sales History CSV", csv_sales, file_name="sales_history.csv", mime="text/csv")
