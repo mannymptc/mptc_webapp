@@ -29,10 +29,19 @@ def load_data():
     if conn is None:
         return pd.DataFrame()
     query = """
-    SELECT order_id, product_sku, product_name, product_category, order_channel,
-           order_date, product_qty, product_price
-    FROM OrdersDespatch
-    WHERE order_date >= '2023-06-01'
+    SELECT 
+        od.order_id,
+        od.product_sku,
+        od.product_name,
+        p.product_category,
+        od.order_channel,
+        od.order_date,
+        od.product_qty,
+        od.product_price
+    FROM OrdersDespatch od
+    LEFT JOIN Products p
+        ON od.product_sku = p.product_sku
+    WHERE od.order_date >= '2024-01-01'
     """
     df = pd.read_sql(query, conn)
     conn.close()
