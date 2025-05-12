@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import pyodbc
-from datetime import datetime, timedelta
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 st.set_page_config(page_title="📊 Product Sales Analysis", layout="wide")
@@ -16,20 +16,20 @@ def connect_db():
             "DATABASE=mptcecommerce-db;"
             "UID=mptcadmin;"
             "PWD=Mptc@2025;"
-            "Connection Timeout=60"
+            "Connection Timeout=30"
         )
     except Exception as e:
         st.error(f"❌ Database connection failed: {e}")
         return None
 
-# ------------------ LOAD SALES DATA ------------------
+# ------------------ LOAD DATA ------------------
 @st.cache_data
 def load_data():
     conn = connect_db()
     if conn is None:
         return pd.DataFrame()
     query = """
-    SELECT order_id, product_sku, product_name, order_channel,
+    SELECT order_id, product_sku, product_name, product_category, order_channel,
            order_date, product_qty, product_price
     FROM OrdersDespatch
     WHERE order_date >= '2023-06-01'
@@ -44,27 +44,35 @@ df = load_data()
 if df.empty:
     st.stop()
 
-# ------------------ SIDEBAR FILTERS ------------------
-st.sidebar.header("🔎 Filters")
+# ------------------ TOP PRODUCT FILTERS ------------------
+st.markdown("### 🎯 Filter Products")
+
+col1, col2, col3 = st.columns(3)
 
 all_skus = sorted(df['product_sku'].dropna().unique().tolist())
 default_skus = all_skus[:5] if len(all_skus) >= 5 else all_skus
-selected_skus = st.sidebar.multiselect("Select SKU(s)", all_skus, default=default_skus)
+selected_skus = col1.multiselect("Select SKU(s)", all_skus, default=default_skus)
 
 all_names = sorted(df['product_name'].dropna().unique().tolist())
 default_names = all_names[:5] if len(all_names) >= 5 else all_names
-selected_names = st.sidebar.multiselect("Select Product Name(s)", all_names, default=default_names)
+selected_names = col2.multiselect("Select Product Name(s)", all_names, default=default_names)
 
+all_categories = sorted(df['product_category'].dropna().unique().tolist())
+selected_categories = col3.multiselect("Select Category(s)", all_categories, default=all_categories)
+
+# ------------------ SIDEBAR DATE FILTER ------------------
+st.sidebar.header("📅 Order Date Filter")
 all_dates = df['order_date'].dt.normalize().dropna().unique()
-selected_date_range = st.sidebar.date_input("Order Date Range", [min(all_dates), max(all_dates)])
+selected_date_range = st.sidebar.date_input("Select Order Date Range", [min(all_dates), max(all_dates)])
 
-# Final filtered data
+# ------------------ FILTER FINAL DATAFRAME ------------------
 start_date = pd.to_datetime(selected_date_range[0])
 end_date = pd.to_datetime(selected_date_range[1])
 
 filtered_df = df[
     (df['product_sku'].isin(selected_skus)) &
     (df['product_name'].isin(selected_names)) &
+    (df['product_category'].isin(selected_categories)) &
     (df['order_date'].between(start_date, end_date))
 ]
 
@@ -79,17 +87,14 @@ with tab1:
         st.warning("No data available for selected filters.")
         st.stop()
 
-    days_range = (selected_date_range[1] - selected_date_range[0]).days + 1
-
+    days_range = (end_date - start_date).days + 1
     total_qty = filtered_df['product_qty'].sum()
     total_revenue = filtered_df['sale_amount'].sum()
 
     avg_qty_day = total_qty / days_range
     avg_rev_day = total_revenue / days_range
-
     avg_qty_week = avg_qty_day * 7
     avg_rev_week = avg_rev_day * 7
-
     avg_qty_month = avg_qty_day * 30
     avg_rev_month = avg_rev_day * 30
 
