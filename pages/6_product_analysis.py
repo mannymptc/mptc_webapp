@@ -146,31 +146,44 @@ with tab1:
 with tab2:
     st.subheader("🧊 Dead or Unsold Stock")
 
+    # Get last sold date per product
     last_sold = df.groupby(['product_sku', 'product_name'])['order_date'].max().reset_index()
     last_sold['Days Since Last Sale'] = (pd.Timestamp.now().normalize() - last_sold['order_date']).dt.days
     last_sold['Last Sold'] = last_sold['order_date'].dt.strftime('%Y-%m-%d')
 
-    unsold_filter = st.selectbox(
-        "📅 Show SKUs not sold in the last:",
-        options=["7 days", "1 month", "3 months", "6 months", "12 months", "> 12 months"]
-    )
-
-    days_thresholds = {
-        "7 days": 7,
-        "1 month": 30,
-        "3 months": 90,
-        "6 months": 180,
-        "12 months": 365,
-        "> 12 months": 366
+    # Define ranges for unsold buckets
+    unsold_buckets = {
+        "7 to 1 month": (7, 30),
+        "1 to 3 months": (31, 90),
+        "3 to 6 months": (91, 180),
+        "6 months to 1 year": (181, 365),
+        "more than 1 year": (366, float("inf"))
     }
 
-    unsold_days = days_thresholds[unsold_filter]
-    dead_stock = last_sold[last_sold['Days Since Last Sale'] >= unsold_days]
+    selected_buckets = st.multiselect(
+        "📅 Select Unsold Time Range(s):",
+        options=list(unsold_buckets.keys()),
+        default=["1 to 3 months"]
+    )
 
-    if dead_stock.empty:
-        st.info("✅ No dead stock found for selected filter.")
+    # Filter using combined logic
+    if not selected_buckets:
+        st.warning("Please select at least one unsold duration.")
     else:
-        st.dataframe(dead_stock[['product_sku', 'product_name', 'Last Sold', 'Days Since Last Sale']], use_container_width=True)
+        combined_filter = pd.Series(False, index=last_sold.index)
 
-        csv_dead = dead_stock.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Download Dead Stock CSV", csv_dead, file_name="dead_stock.csv", mime="text/csv")
+        for bucket in selected_buckets:
+            min_days, max_days = unsold_buckets[bucket]
+            in_range = (last_sold['Days Since Last Sale'] >= min_days) & (last_sold['Days Since Last Sale'] <= max_days)
+            combined_filter |= in_range
+
+        dead_stock = last_sold[combined_filter]
+
+        if dead_stock.empty:
+            st.info("✅ No dead stock found for selected range(s).")
+        else:
+            st.caption("Showing SKUs not sold in the selected time window(s):")
+            st.dataframe(dead_stock[['product_sku', 'product_name', 'Last Sold', 'Days Since Last Sale']], use_container_width=True)
+
+            csv_dead = dead_stock.to_csv(index=False).encode("utf-8")
+            st.download_button("⬇️ Download Dead Stock CSV", csv_dead, file_name="dead_stock.csv", mime="text/csv")
