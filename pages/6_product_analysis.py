@@ -56,18 +56,27 @@ if df.empty:
 # ------------------ TOP PRODUCT FILTERS ------------------
 st.markdown("### 🎯 Filter Products")
 
+# Get lists independently from full data
+sku_list = sorted(df['product_sku'].dropna().unique().tolist())
+name_list = sorted(df['product_name'].dropna().unique().tolist())
+category_list = sorted(df['product_category'].dropna().unique().tolist())
+
+# Get top 5 SKUs with actual sales
+top5_skus = (
+    df.groupby('product_sku')['product_qty'].sum()
+    .sort_values(ascending=False)
+    .head(5)
+    .index.tolist()
+)
+
+top5_names = df[df['product_sku'].isin(top5_skus)]['product_name'].dropna().unique().tolist()
+top5_categories = df[df['product_sku'].isin(top5_skus)]['product_category'].dropna().unique().tolist()
+
 col1, col2, col3 = st.columns(3)
 
-all_skus = sorted(df['product_sku'].dropna().unique().tolist())
-default_skus = all_skus[:5] if len(all_skus) >= 5 else all_skus
-selected_skus = col1.multiselect("Select SKU(s)", all_skus, default=default_skus)
-
-all_names = sorted(df['product_name'].dropna().unique().tolist())
-default_names = all_names[:5] if len(all_names) >= 5 else all_names
-selected_names = col2.multiselect("Select Product Name(s)", all_names, default=default_names)
-
-all_categories = sorted(df['product_category'].dropna().unique().tolist())
-selected_categories = col3.multiselect("Select Category(s)", all_categories, default=all_categories)
+selected_skus = col1.multiselect("Select SKU(s)", sku_list, default=top5_skus)
+selected_names = col2.multiselect("Select Product Name(s)", name_list, default=top5_names)
+selected_categories = col3.multiselect("Select Category(s)", category_list, default=top5_categories)
 
 # ------------------ SIDEBAR DATE FILTER ------------------
 st.sidebar.header("📅 Order Date Filter")
