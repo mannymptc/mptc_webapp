@@ -93,24 +93,27 @@ despatch_dates = sorted(df['despatch_date'].dropna().unique())
 # --- Final Order Date Range ---
 if order_quick != "None":
     order_start, order_end = get_range_from_option(order_quick, order_dates)
-elif len(order_date_range) == 1:
-    order_start = order_end = pd.to_datetime(order_date_range[0])
-elif len(order_date_range) == 2:
-    order_start, order_end = pd.to_datetime(order_date_range)
+elif order_date_range:
+    if len(order_date_range) == 1:
+        order_start = order_end = pd.to_datetime(order_date_range[0])
+    else:
+        order_start, order_end = pd.to_datetime(order_date_range)
 else:
+    # No filter selected — default to last 30 days
     order_end = max(order_dates)
-    order_start = order_end - timedelta(days=29)  # Default: Last 30 days
+    order_start = order_end - timedelta(days=29)
 
 # --- Final Despatch Date Range ---
 if despatch_quick != "None":
     despatch_start, despatch_end = get_range_from_option(despatch_quick, despatch_dates)
-elif len(despatch_date_range) == 1:
-    despatch_start = despatch_end = pd.to_datetime(despatch_date_range[0])
-elif len(despatch_date_range) == 2:
-    despatch_start, despatch_end = pd.to_datetime(despatch_date_range)
+elif despatch_date_range:
+    if len(despatch_date_range) == 1:
+        despatch_start = despatch_end = pd.to_datetime(despatch_date_range[0])
+    else:
+        despatch_start, despatch_end = pd.to_datetime(despatch_date_range)
 else:
     despatch_end = max(despatch_dates)
-    despatch_start = despatch_end - timedelta(days=29)  # Default: Last 30 days
+    despatch_start = despatch_end - timedelta(days=29)
 
 # --- Debugging Output ---
 st.caption(f"🗓️ Order Filter Range: {order_start.date()} to {order_end.date()}")
