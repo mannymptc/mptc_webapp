@@ -211,7 +211,7 @@ with tab2:
             st.dataframe(
                 dead_stock_sorted[['product_sku', 'product_name', 'Bucket', 'Last Sold', 'Days Since Last Sale']],
                 use_container_width=True,
-                height=800
+                height=500
             )
 
     # ------------------ 4. Charts (Bar + Box Side-by-Side) ------------------
