@@ -39,9 +39,8 @@ def load_data():
         od.product_qty,
         od.product_price
     FROM OrdersDespatch od
-    LEFT JOIN Products p
-        ON od.product_sku = p.product_sku
-    WHERE od.order_date >= '2024-01-01'
+    LEFT JOIN Products p ON od.product_sku = p.product_sku
+    WHERE od.order_date >= '2023-06-01'
     """
     df = pd.read_sql(query, conn)
     conn.close()
@@ -56,27 +55,22 @@ if df.empty:
 # ------------------ TOP PRODUCT FILTERS ------------------
 st.markdown("### 🎯 Filter Products")
 
-# Get lists independently from full data
 sku_list = sorted(df['product_sku'].dropna().unique().tolist())
 name_list = sorted(df['product_name'].dropna().unique().tolist())
 category_list = sorted(df['product_category'].dropna().unique().tolist())
 
-# Get top 5 SKUs with actual sales
+# Get top 5 SKUs with real sales
 top5_skus = (
     df.groupby('product_sku')['product_qty'].sum()
     .sort_values(ascending=False)
-    .head(100)
+    .head(5)
     .index.tolist()
 )
 
-top5_names = df[df['product_sku'].isin(top5_skus)]['product_name'].dropna().unique().tolist()
-top5_categories = df[df['product_sku'].isin(top5_skus)]['product_category'].dropna().unique().tolist()
-
 col1, col2, col3 = st.columns(3)
-
 selected_skus = col1.multiselect("Select SKU(s)", sku_list, default=top5_skus)
-selected_names = col2.multiselect("Select Product Name(s)", name_list, default=top5_names)
-selected_categories = col3.multiselect("Select Category(s)", category_list, default=top5_categories)
+selected_names = col2.multiselect("Select Product Name(s)", name_list)
+selected_categories = col3.multiselect("Select Category(s)", category_list)
 
 # ------------------ SIDEBAR DATE FILTER ------------------
 st.sidebar.header("📅 Order Date Filter")
@@ -88,11 +82,20 @@ start_date = pd.to_datetime(selected_date_range[0])
 end_date = pd.to_datetime(selected_date_range[1])
 
 filtered_df = df[
-    (df['product_sku'].isin(selected_skus)) &
-    (df['product_name'].isin(selected_names)) &
-    (df['product_category'].isin(selected_categories)) &
+    df['product_sku'].isin(selected_skus) &
+    (df['product_name'].isin(selected_names) if selected_names else True) &
+    (df['product_category'].isin(selected_categories) if selected_categories else True) &
     (df['order_date'].between(start_date, end_date))
 ]
+
+# ------------------ DEBUG INFO ------------------
+with st.expander("🛠 Debug Info (optional)"):
+    st.write("Start Date:", start_date)
+    st.write("End Date:", end_date)
+    st.write("Selected SKUs:", selected_skus)
+    st.write("Selected Names:", selected_names)
+    st.write("Selected Categories:", selected_categories)
+    st.write("Filtered Rows:", len(filtered_df))
 
 # ------------------ TABS ------------------
 tab1, tab2 = st.tabs(["📊 Sales History", "🧊 Unsold / Dead Stock"])
@@ -103,39 +106,38 @@ with tab1:
 
     if filtered_df.empty:
         st.warning("No data available for selected filters.")
-        st.stop()
+    else:
+        days_range = (end_date - start_date).days + 1
+        total_qty = filtered_df['product_qty'].sum()
+        total_revenue = filtered_df['sale_amount'].sum()
 
-    days_range = (end_date - start_date).days + 1
-    total_qty = filtered_df['product_qty'].sum()
-    total_revenue = filtered_df['sale_amount'].sum()
+        avg_qty_day = total_qty / days_range
+        avg_rev_day = total_revenue / days_range
+        avg_qty_week = avg_qty_day * 7
+        avg_rev_week = avg_rev_day * 7
+        avg_qty_month = avg_qty_day * 30
+        avg_rev_month = avg_rev_day * 30
 
-    avg_qty_day = total_qty / days_range
-    avg_rev_day = total_revenue / days_range
-    avg_qty_week = avg_qty_day * 7
-    avg_rev_week = avg_rev_day * 7
-    avg_qty_month = avg_qty_day * 30
-    avg_rev_month = avg_rev_day * 30
+        col1, col2, col3 = st.columns(3)
+        col1.metric("🔢 Total Quantity Sold", int(total_qty))
+        col2.metric("💰 Total Revenue", f"£ {total_revenue:,.2f}")
+        col3.metric("📅 Days Selected", f"{days_range} days")
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("🔢 Total Quantity Sold", int(total_qty))
-    col2.metric("💰 Total Revenue", f"£ {total_revenue:,.2f}")
-    col3.metric("📅 Days Selected", f"{days_range} days")
+        col4, col5, col6 = st.columns(3)
+        col4.metric("📦 Avg Qty / Day", f"{avg_qty_day:.2f}")
+        col5.metric("📦 Avg Qty / Week", f"{avg_qty_week:.2f}")
+        col6.metric("📦 Avg Qty / Month", f"{avg_qty_month:.2f}")
 
-    col4, col5, col6 = st.columns(3)
-    col4.metric("📦 Avg Qty / Day", f"{avg_qty_day:.2f}")
-    col5.metric("📦 Avg Qty / Week", f"{avg_qty_week:.2f}")
-    col6.metric("📦 Avg Qty / Month", f"{avg_qty_month:.2f}")
+        col7, col8, col9 = st.columns(3)
+        col7.metric("💵 Avg Rev / Day", f"£ {avg_rev_day:.2f}")
+        col8.metric("💵 Avg Rev / Week", f"£ {avg_rev_week:.2f}")
+        col9.metric("💵 Avg Rev / Month", f"£ {avg_rev_month:.2f}")
 
-    col7, col8, col9 = st.columns(3)
-    col7.metric("💵 Avg Rev / Day", f"£ {avg_rev_day:.2f}")
-    col8.metric("💵 Avg Rev / Week", f"£ {avg_rev_week:.2f}")
-    col9.metric("💵 Avg Rev / Month", f"£ {avg_rev_month:.2f}")
+        st.markdown("### 📃 Filtered Sales Data")
+        st.dataframe(filtered_df.head(10), use_container_width=True)
 
-    st.markdown("### 📃 Filtered Sales Data")
-    st.dataframe(filtered_df.head(10), use_container_width=True)
-
-    csv_sales = filtered_df.to_csv(index=False).encode("utf-8")
-    st.download_button("⬇️ Download Sales History CSV", csv_sales, file_name="sales_history.csv", mime="text/csv")
+        csv_sales = filtered_df.to_csv(index=False).encode("utf-8")
+        st.download_button("⬇️ Download Sales History CSV", csv_sales, file_name="sales_history.csv", mime="text/csv")
 
 # ------------------ TAB 2: DEAD STOCK ------------------
 with tab2:
