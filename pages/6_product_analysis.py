@@ -48,10 +48,12 @@ if df.empty:
 st.sidebar.header("🔎 Filters")
 
 all_skus = sorted(df['product_sku'].dropna().unique().tolist())
-selected_skus = st.sidebar.multiselect("Select SKU(s)", all_skus, default=all_skus)
+default_skus = all_skus[:5] if len(all_skus) >= 5 else all_skus
+selected_skus = st.sidebar.multiselect("Select SKU(s)", all_skus, default=default_skus)
 
 all_names = sorted(df['product_name'].dropna().unique().tolist())
-selected_names = st.sidebar.multiselect("Select Product Name(s)", all_names, default=all_names)
+default_names = all_names[:5] if len(all_names) >= 5 else all_names
+selected_names = st.sidebar.multiselect("Select Product Name(s)", all_names, default=default_names)
 
 all_dates = df['order_date'].dt.normalize().dropna().unique()
 selected_date_range = st.sidebar.date_input("Order Date Range", [min(all_dates), max(all_dates)])
