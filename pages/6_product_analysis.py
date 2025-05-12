@@ -146,10 +146,24 @@ with tab1:
 with tab2:
     st.subheader("🧊 Dead or Unsold Stock")
 
+    from dateutil.relativedelta import relativedelta
+    import plotly.express as px
+
     # Get last sold date per product
     last_sold = df.groupby(['product_sku', 'product_name'])['order_date'].max().reset_index()
     last_sold['Days Since Last Sale'] = (pd.Timestamp.now().normalize() - last_sold['order_date']).dt.days
     last_sold['Last Sold'] = last_sold['order_date'].dt.strftime('%Y-%m-%d')
+
+    # Human-readable "Time Since Last Sale"
+    def time_since(date):
+        delta = relativedelta(datetime.now().date(), date)
+        parts = []
+        if delta.years: parts.append(f"{delta.years} yr{'s' if delta.years > 1 else ''}")
+        if delta.months: parts.append(f"{delta.months} mo")
+        if delta.days: parts.append(f"{delta.days} d")
+        return " ".join(parts) if parts else "Today"
+
+    last_sold['Time Since Last Sale'] = pd.to_datetime(last_sold['order_date']).dt.date.apply(time_since)
 
     # Define ranges for unsold buckets (fixed display order)
     unsold_buckets = {
@@ -200,22 +214,21 @@ with tab2:
         else:
             # ------------------ 3. Data Table + Inline Download ------------------
             dead_stock_sorted = dead_stock.sort_values(by="Days Since Last Sale", ascending=True)
-            
+
             row1_col1, row1_col2 = st.columns([0.8, 0.2])
             with row1_col1:
                 st.markdown("### 🧾 Dead Stock List")
             with row1_col2:
                 csv_dead = dead_stock_sorted.to_csv(index=False).encode("utf-8")
                 st.download_button("⬇️ Download CSV", csv_dead, file_name="dead_stock.csv", mime="text/csv", use_container_width=True)
-            
+
             st.dataframe(
-                dead_stock_sorted[['product_sku', 'product_name', 'Bucket', 'Last Sold', 'Days Since Last Sale']],
+                dead_stock_sorted[['product_sku', 'product_name', 'Bucket', 'Last Sold', 'Days Since Last Sale', 'Time Since Last Sale']],
                 use_container_width=True,
                 height=500
             )
 
     # ------------------ 4. Charts (Bar + Box Side-by-Side) ------------------
-    import plotly.express as px
     st.markdown("### 📊 Visual Summary of All Buckets")
 
     # Bar Chart: Count of SKUs per bucket (all)
@@ -244,3 +257,33 @@ with tab2:
     col1, col2 = st.columns(2)
     col1.plotly_chart(bar_fig, use_container_width=True)
     col2.plotly_chart(box_fig, use_container_width=True)
+
+    # ------------------ 5. SKU Count by Product Category ------------------
+    st.markdown("### 🧯 Unsold SKU Count by Product Category")
+
+    # Join categories
+    df_with_category = df.dropna(subset=['product_category'])
+    sku_category_map = df_with_category[['product_sku', 'product_category']].drop_duplicates()
+    dead_skus = pd.merge(last_sold.dropna(subset=['Bucket']), sku_category_map, on='product_sku', how='left')
+
+    # Count by category
+    category_counts = (
+        dead_skus.groupby('product_category')['product_sku']
+        .nunique()
+        .reset_index()
+        .rename(columns={'product_sku': 'Unsold SKU Count'})
+        .sort_values(by='Unsold SKU Count', ascending=False)
+    )
+
+    st.dataframe(category_counts, use_container_width=True)
+
+    fig_cat = px.bar(
+        category_counts,
+        x="product_category",
+        y="Unsold SKU Count",
+        title="📊 Unsold SKU Count by Product Category",
+        text="Unsold SKU Count"
+    )
+    fig_cat.update_traces(textposition="outside")
+    fig_cat.update_layout(xaxis_tickangle=-45, height=500)
+    st.plotly_chart(fig_cat, use_container_width=True)
