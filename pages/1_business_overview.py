@@ -53,27 +53,52 @@ df['despatch_date'] = pd.to_datetime(df['despatch_date'])
 
 # ------------------ SIDEBAR DATE FILTER ------------------
 st.sidebar.header("📅 Filter by Date")
+
+# --- Manual Input ---
 order_date_range = st.sidebar.date_input("Order Date Range", [])
 despatch_date_range = st.sidebar.date_input("Despatch Date Range", [])
 
-today = pd.to_datetime("today").normalize()
-default_start = today - timedelta(days=30)
+# --- Quick Select Dropdown ---
+order_quick = st.sidebar.selectbox("🕒 Quick Order Date Range", ["None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"])
+despatch_quick = st.sidebar.selectbox("🚚 Quick Despatch Date Range", ["None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"])
 
-if len(order_date_range) == 0:
-    order_start = default_start
-    order_end = today
+today = pd.to_datetime("today").normalize()
+
+def get_range_from_option(option):
+    if option == "Yesterday":
+        return today - timedelta(days=1), today - timedelta(days=1)
+    elif option == "Last 7 Days":
+        return today - timedelta(days=6), today
+    elif option == "Last 30 Days":
+        return today - timedelta(days=29), today
+    elif option == "Last 3 Months":
+        return today - pd.DateOffset(months=3), today
+    elif option == "Last 6 Months":
+        return today - pd.DateOffset(months=6), today
+    elif option == "Last 12 Months":
+        return today - pd.DateOffset(months=12), today
+    else:
+        return None, None
+
+# --- Order Date Range Final ---
+if order_quick != "None":
+    order_start, order_end = get_range_from_option(order_quick)
 elif len(order_date_range) == 1:
     order_start = order_end = pd.to_datetime(order_date_range[0])
-else:
+elif len(order_date_range) == 2:
     order_start, order_end = pd.to_datetime(order_date_range)
+else:
+    order_start, order_end = today - timedelta(days=30), today
 
-if len(despatch_date_range) == 0:
-    despatch_start = default_start
-    despatch_end = today
+# --- Despatch Date Range Final ---
+if despatch_quick != "None":
+    despatch_start, despatch_end = get_range_from_option(despatch_quick)
 elif len(despatch_date_range) == 1:
     despatch_start = despatch_end = pd.to_datetime(despatch_date_range[0])
-else:
+elif len(despatch_date_range) == 2:
     despatch_start, despatch_end = pd.to_datetime(despatch_date_range)
+else:
+    despatch_start, despatch_end = today - timedelta(days=30), today
 
 # ------------------ CHANNEL FILTER ------------------
 channels = sorted(df['order_channel'].dropna().unique().tolist())
