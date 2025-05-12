@@ -16,7 +16,7 @@ def connect_db():
             "DATABASE=mptcecommerce-db;"
             "UID=mptcadmin;"
             "PWD=Mptc@2025;"
-            "Connection Timeout=30"
+            "Connection Timeout=60"
         )
     except Exception as e:
         st.error(f"❌ Database connection failed: {e}")
