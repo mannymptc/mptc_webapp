@@ -166,29 +166,73 @@ with tab2:
         default=["1 to 3 months"]
     )
 
-    # Filter using combined logic
     if not selected_buckets:
         st.warning("Please select at least one unsold duration.")
     else:
+        # Prepare combined filter and label map
         combined_filter = pd.Series(False, index=last_sold.index)
+        filter_labels = []
+
+        bucket_summary = []
 
         for bucket in selected_buckets:
             min_days, max_days = unsold_buckets[bucket]
             in_range = (last_sold['Days Since Last Sale'] >= min_days) & (last_sold['Days Since Last Sale'] <= max_days)
+            label_column = bucket  # to tag each row
+            count = last_sold[in_range]['product_sku'].nunique()
+            bucket_summary.append((bucket, count))
+            filter_labels.append(pd.Series(label_column, index=last_sold[in_range].index))
             combined_filter |= in_range
 
-        dead_stock = last_sold[combined_filter]
+        # Final filtered dataframe
+        dead_stock = last_sold[combined_filter].copy()
+        if filter_labels:
+            dead_stock['Bucket'] = pd.concat(filter_labels).sort_index()
 
         if dead_stock.empty:
             st.info("✅ No dead stock found for selected range(s).")
         else:
-            st.caption("Showing SKUs not sold in the selected time window(s):")
+            # ------------------ KPI: Count of SKUs by Bucket ------------------
+            st.markdown("### 📦 Unique SKUs in Each Selected Bucket")
+            kpi_cols = st.columns(len(bucket_summary))
+            for i, (bucket, count) in enumerate(bucket_summary):
+                kpi_cols[i].metric(label=bucket, value=f"{count} SKUs")
+
+            # ------------------ BAR CHART ------------------
+            import plotly.express as px
+
+            bar_fig = px.bar(
+                pd.DataFrame(bucket_summary, columns=["Bucket", "SKU Count"]),
+                x="Bucket",
+                y="SKU Count",
+                title="🧊 Number of Unsold SKUs per Time Bucket",
+                text="SKU Count"
+            )
+            bar_fig.update_traces(textposition="outside")
+            bar_fig.update_layout(height=400)
+            st.plotly_chart(bar_fig, use_container_width=True)
+
+            # ------------------ BOX PLOT ------------------
+            box_fig = px.box(
+                dead_stock,
+                x="Bucket",
+                y="Days Since Last Sale",
+                points="all",
+                title="📦 Distribution of Days Since Last Sale per Bucket",
+                color="Bucket"
+            )
+            box_fig.update_layout(height=450)
+            st.plotly_chart(box_fig, use_container_width=True)
+
+            # ------------------ DATA TABLE ------------------
+            st.markdown("### 🧾 Dead Stock List")
             dead_stock_sorted = dead_stock.sort_values(by="Days Since Last Sale", ascending=True)
             st.dataframe(
-                dead_stock_sorted[['product_sku', 'product_name', 'Last Sold', 'Days Since Last Sale']],
+                dead_stock_sorted[['product_sku', 'product_name', 'Bucket', 'Last Sold', 'Days Since Last Sale']],
                 use_container_width=True,
-                height=800  # adjust as needed to show ~25 rows without scrolling
+                height=800
             )
 
-            csv_dead = dead_stock.to_csv(index=False).encode("utf-8")
+            # ------------------ DOWNLOAD BUTTON ------------------
+            csv_dead = dead_stock_sorted.to_csv(index=False).encode("utf-8")
             st.download_button("⬇️ Download Dead Stock CSV", csv_dead, file_name="dead_stock.csv", mime="text/csv")
