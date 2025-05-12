@@ -92,28 +92,29 @@ else:
     end_date = df['despatch_date'].max().normalize()
     start_date = end_date - timedelta(days=30)
 
-# Apply the date filter to DataFrame
-df['despatch_date'] = pd.to_datetime(df['despatch_date'])
+# Normalize despatch_date
+df['despatch_date'] = pd.to_datetime(df['despatch_date']).dt.normalize()
+
+# Apply date filter
 st.caption(f"Debug: Filtering from {start_date.date()} to {end_date.date()}")
 st.caption(f"Max despatch date in data: {df['despatch_date'].max().date()}")
-df = df[df['despatch_date'].between(start_date, end_date)]
+filtered_df = df[df['despatch_date'].between(start_date, end_date)]
 
 # ------------------ CHANNEL FILTER ------------------
-channels = sorted(df['order_channel'].dropna().unique().tolist())
+channels = sorted(filtered_df['order_channel'].dropna().unique().tolist())
 all_option = "Select All"
 channels_with_all = [all_option] + channels
 
 selected_channels = st.multiselect("📦 Select Sales Channel(s)", options=channels_with_all, default=[all_option])
 
-# If "Select All" is chosen or nothing is selected, use all channels
+# Expand "Select All"
 if all_option in selected_channels or not selected_channels:
     selected_channels = channels
 
-# Filter your data AFTER setting selected_channels
-df = df[df['order_channel'].isin(selected_channels)]
+# Final filter by channel
+filtered_df = filtered_df[filtered_df['order_channel'].isin(selected_channels)]
 
-filtered_df = df[df['order_channel'].isin(selected_channels)]
-
+# Exit early if empty
 if filtered_df.empty:
     st.warning("No data for selected filters.")
     st.stop()
