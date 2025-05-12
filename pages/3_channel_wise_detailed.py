@@ -57,6 +57,7 @@ quick_range = st.sidebar.selectbox("🚀 Quick Despatch Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
 
+# Function to compute date ranges from dropdown option
 def get_range_from_option(option, df_date_col):
     if df_date_col.empty:
         return None, None
@@ -79,6 +80,7 @@ def get_range_from_option(option, df_date_col):
     else:
         return None, None
 
+# Determine final start_date and end_date
 if quick_range != "None":
     start_date, end_date = get_range_from_option(quick_range, df['despatch_date'])
 elif len(selected_range) == 1:
@@ -86,9 +88,11 @@ elif len(selected_range) == 1:
 elif len(selected_range) == 2:
     start_date, end_date = pd.to_datetime(selected_range)
 else:
-    end_date = max(available_dates) if available_dates else datetime.today()
+    end_date = df['despatch_date'].max().normalize()
     start_date = end_date - timedelta(days=30)
 
+# Apply the date filter to DataFrame
+df['despatch_date'] = pd.to_datetime(df['despatch_date'])
 df = df[df['despatch_date'].between(start_date, end_date)]
 
 # ------------------ CHANNEL FILTER ------------------
