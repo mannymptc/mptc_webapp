@@ -250,8 +250,16 @@ with tab2:
         y="Days Since Last Sale",
         points="all",
         title="📦 Days Since Last Sale Distribution by Time Bucket",
-        color="Bucket"
+        color="Bucket",
+        category_orders={"Bucket": [
+            "7 days to 1 month",
+            "1 to 3 months",
+            "3 to 6 months",
+            "6 months to 1 year",
+            "more than 1 year"
+        ]}
     )
+
     box_fig.update_layout(height=700)
 
     col1, col2 = st.columns(2)
