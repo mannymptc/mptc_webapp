@@ -134,7 +134,14 @@ with tab1:
     col8.metric("💵 Avg Rev / Week", f"£ {avg_rev_week:.2f}")
     col9.metric("💵 Avg Rev / Month", f"£ {avg_rev_month:.2f}")
 
-    # ------------------ 4. Channel-wise Summary ------------------
+       # ------------------ 5. Raw Data + Download ------------------
+    st.markdown("### 📃 Filtered Sales Data")
+    st.dataframe(filtered_df.head(10), use_container_width=True)
+
+    csv_data = filtered_df.to_csv(index=False).encode("utf-8")
+    st.download_button("⬇️ Download Full Filtered Sales CSV", csv_data, file_name="filtered_sales.csv", mime="text/csv")
+
+     # ------------------ 4. Channel-wise Summary ------------------
     st.markdown("### 📊 Channel-wise Sales Summary")
     channel_summary = (
         filtered_df.groupby('order_channel')
@@ -147,13 +154,6 @@ with tab1:
         .sort_values(by='total_revenue', ascending=False)
     )
     st.dataframe(channel_summary, use_container_width=True)
-
-    # ------------------ 5. Raw Data + Download ------------------
-    st.markdown("### 📃 Filtered Sales Data")
-    st.dataframe(filtered_df.head(10), use_container_width=True)
-
-    csv_data = filtered_df.to_csv(index=False).encode("utf-8")
-    st.download_button("⬇️ Download Full Filtered Sales CSV", csv_data, file_name="filtered_sales.csv", mime="text/csv")
 
 # ------------------ TAB 2: DEAD STOCK ------------------
 with tab2:
