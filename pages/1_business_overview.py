@@ -61,7 +61,7 @@ despatch_date_range = st.sidebar.date_input("Despatch Date Range", [])
 order_quick = st.sidebar.selectbox("🕒 Quick Order Date Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
-despatch_quick = st.sidebar.selectbox("🚚 Quick Despatch Date Range", [
+despatch_quick = st.sidebar.selectbox("🕒 Quick Despatch Date Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
 
@@ -98,7 +98,8 @@ elif len(order_date_range) == 1:
 elif len(order_date_range) == 2:
     order_start, order_end = pd.to_datetime(order_date_range)
 else:
-    order_start, order_end = min(order_dates), max(order_dates)  # <- FIX: use full range as fallback
+    order_end = max(order_dates)
+    order_start = order_end - timedelta(days=29)  # Default: Last 30 days
 
 # --- Final Despatch Date Range ---
 if despatch_quick != "None":
@@ -108,7 +109,8 @@ elif len(despatch_date_range) == 1:
 elif len(despatch_date_range) == 2:
     despatch_start, despatch_end = pd.to_datetime(despatch_date_range)
 else:
-    despatch_start, despatch_end = min(despatch_dates), max(despatch_dates)  # <- FIX
+    despatch_end = max(despatch_dates)
+    despatch_start = despatch_end - timedelta(days=29)  # Default: Last 30 days
 
 # --- Debugging Output ---
 st.caption(f"🗓️ Order Filter Range: {order_start.date()} to {order_end.date()}")
