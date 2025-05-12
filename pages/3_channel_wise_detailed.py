@@ -103,9 +103,14 @@ channels = sorted(df['order_channel'].dropna().unique().tolist())
 all_option = "Select All"
 channels_with_all = [all_option] + channels
 
-selected_channels = st.multiselect("📦 Select Sales Channel(s)", options=channels_with_all, default=all_option)
-if all_option in selected_channels:
+selected_channels = st.multiselect("📦 Select Sales Channel(s)", options=channels_with_all, default=[all_option])
+
+# If "Select All" is chosen or nothing is selected, use all channels
+if all_option in selected_channels or not selected_channels:
     selected_channels = channels
+
+# Filter your data AFTER setting selected_channels
+df = df[df['order_channel'].isin(selected_channels)]
 
 filtered_df = df[df['order_channel'].isin(selected_channels)]
 
