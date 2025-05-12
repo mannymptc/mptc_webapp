@@ -51,13 +51,15 @@ if df.empty:
 df['order_date'] = pd.to_datetime(df['order_date']).dt.normalize()
 df['despatch_date'] = pd.to_datetime(df['despatch_date']).dt.normalize()
 
+# ------------------ SIDEBAR DATE FILTER ------------------
+
 st.sidebar.header("📅 Filter by Date")
 
-# --- Manual Inputs ---
+# Manual selections
 order_date_range = st.sidebar.date_input("Order Date Range", [])
 despatch_date_range = st.sidebar.date_input("Despatch Date Range", [])
 
-# --- Quick Filters ---
+# Quick filters
 order_quick = st.sidebar.selectbox("🕒 Quick Order Date Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
@@ -65,59 +67,58 @@ despatch_quick = st.sidebar.selectbox("🕒 Quick Despatch Date Range", [
     "None", "Yesterday", "Last 7 Days", "Last 30 Days", "Last 3 Months", "Last 6 Months", "Last 12 Months"
 ])
 
-# --- Helper Function ---
+# Helper function
 def get_range_from_option(option, available_dates):
-    if len(available_dates) == 0:
+    if not available_dates:
         return None, None
-    today = max(available_dates)
-
+    latest = max(available_dates)
     if option == "Yesterday":
-        return today, today
+        return latest, latest
     elif option == "Last 7 Days":
-        return today - timedelta(days=6), today
+        return latest - timedelta(days=6), latest
     elif option == "Last 30 Days":
-        return today - timedelta(days=29), today
+        return latest - timedelta(days=29), latest
     elif option == "Last 3 Months":
-        return today - relativedelta(months=3), today
+        return latest - relativedelta(months=3), latest
     elif option == "Last 6 Months":
-        return today - relativedelta(months=6), today
+        return latest - relativedelta(months=6), latest
     elif option == "Last 12 Months":
-        return today - relativedelta(months=12), today
-    else:
-        return None, None
+        return latest - relativedelta(months=12), latest
+    return None, None
 
-# --- Determine Date Ranges from Data ---
-order_dates = sorted(df['order_date'].dropna().unique())
-despatch_dates = sorted(df['despatch_date'].dropna().unique())
+# Pre-compute valid dates
+order_dates = sorted(df['order_date'].dropna().dt.normalize().unique())
+despatch_dates = sorted(df['despatch_date'].dropna().dt.normalize().unique())
 
-# --- Final Order Date Range ---
+# ORDER DATE LOGIC
+order_start, order_end = None, None
 if order_quick != "None":
     order_start, order_end = get_range_from_option(order_quick, order_dates)
-elif order_date_range:
-    if len(order_date_range) == 1:
-        order_start = order_end = pd.to_datetime(order_date_range[0])
-    else:
-        order_start, order_end = pd.to_datetime(order_date_range)
-else:
-    # No filter selected — default to last 30 days
+elif len(order_date_range) == 1:
+    order_start = order_end = pd.to_datetime(order_date_range[0])
+elif len(order_date_range) == 2:
+    order_start, order_end = pd.to_datetime(order_date_range)
+# Fallback
+if order_start is None or order_end is None:
     order_end = max(order_dates)
     order_start = order_end - timedelta(days=29)
 
-# --- Final Despatch Date Range ---
+# DESPATCH DATE LOGIC
+despatch_start, despatch_end = None, None
 if despatch_quick != "None":
     despatch_start, despatch_end = get_range_from_option(despatch_quick, despatch_dates)
-elif despatch_date_range:
-    if len(despatch_date_range) == 1:
-        despatch_start = despatch_end = pd.to_datetime(despatch_date_range[0])
-    else:
-        despatch_start, despatch_end = pd.to_datetime(despatch_date_range)
-else:
+elif len(despatch_date_range) == 1:
+    despatch_start = despatch_end = pd.to_datetime(despatch_date_range[0])
+elif len(despatch_date_range) == 2:
+    despatch_start, despatch_end = pd.to_datetime(despatch_date_range)
+# Fallback
+if despatch_start is None or despatch_end is None:
     despatch_end = max(despatch_dates)
     despatch_start = despatch_end - timedelta(days=29)
 
-# --- Debugging Output ---
-st.caption(f"🗓️ Order Filter Range: {order_start.date()} to {order_end.date()}")
-st.caption(f"🗓️ Despatch Filter Range: {despatch_start.date()} to {despatch_end.date()}")
+# Debug output
+st.caption(f"🗓️ Order Range: {order_start.date()} to {order_end.date()}")
+st.caption(f"🗓️ Despatch Range: {despatch_start.date()} to {despatch_end.date()}")
 
 # ------------------ CHANNEL FILTER ------------------
 channels = sorted(df['order_channel'].dropna().unique().tolist())
