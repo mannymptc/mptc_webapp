@@ -51,11 +51,15 @@ df = load_data()
 if df.empty:
     st.stop()
 
-# ------------------ FILTER SECTION ------------------
-st.sidebar.header("🔍 Filter Products")
-sku_input = st.sidebar.text_input("🔍 SKU Filter (comma-separated)")
-name_input = st.sidebar.text_input("🔍 Name Filter")
-cat_input = st.sidebar.text_input("🔍 Category Filter")
+# ------------------ TOP FILTERS ------------------
+st.markdown("### 🎯 Smart Search Filters")
+col1, col2, col3 = st.columns(3)
+with col1:
+    sku_input = st.text_input("🔍 SKU Filter", placeholder="e.g. abc, 123, xyz")
+with col2:
+    name_input = st.text_input("🔍 Name Filter", placeholder="e.g. bottle, charger")
+with col3:
+    cat_input = st.text_input("🔍 Category Filter", placeholder="e.g. electronics, bags")
 
 sku_terms = [term.strip().lower() for term in sku_input.split(',') if term.strip()]
 name_terms = [term.strip().lower() for term in name_input.split(',') if term.strip()]
@@ -83,12 +87,14 @@ if filtered_df.empty:
     st.stop()
 
 # ------------------ FORECAST SETTINGS ------------------
-st.sidebar.header("⏳ Forecast Settings")
-range_option = st.sidebar.selectbox("Forecast Horizon", ["Next 7 Days", "Next 30 Days", "Next 90 Days"])
-forecast_days = 7 if range_option == "Next 7 Days" else 30 if range_option == "Next 30 Days" else 90
+st.markdown("### ⚙️ Forecast Settings")
+col4, col5 = st.columns([2, 1])
+with col4:
+    range_option = st.selectbox("⏳ Forecast Horizon", ["Next 7 Days", "Next 30 Days", "Next 90 Days"])
+with col5:
+    safety_pct = st.slider("📦 Safety Stock %", min_value=0, max_value=100, value=20, step=5)
 
-# Optional: Safety stock %
-safety_pct = st.sidebar.slider("📦 Safety Stock %", min_value=0, max_value=100, value=20, step=5)
+forecast_days = 7 if range_option == "Next 7 Days" else 30 if range_option == "Next 30 Days" else 90
 
 # ------------------ RUN FORECAST ------------------
 st.markdown("### 🔮 SKU-Level Sales Forecast")
