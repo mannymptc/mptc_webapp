@@ -1,3 +1,4 @@
+# forecasting_model.py
 import pandas as pd
 from prophet import Prophet
 from prophet.make_holidays import make_holidays_df
@@ -43,7 +44,9 @@ def forecast_multiple_skus(df, sku_col, date_col, qty_col, forecast_days=30):
 
     all_forecasts = pd.concat(forecast_results, ignore_index=True)
     all_forecasts.rename(columns={'ds': 'forecast_date', 'yhat': 'forecast_qty'}, inplace=True)
-    return all_forecasts[['product_sku', 'forecast_date', 'forecast_qty']]
+
+    # Include forecast_days_ahead in final output
+    return all_forecasts[['product_sku', 'forecast_date', 'forecast_qty', 'forecast_days_ahead']]
 
 def prepare_forecast_csv(forecast_df):
     return forecast_df.to_csv(index=False).encode("utf-8")
