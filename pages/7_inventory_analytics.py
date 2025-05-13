@@ -115,7 +115,6 @@ col_f1, col_f2 = st.columns([0.8, 0.2])
 with col_f1:
     st.write("")
 
-# Run for max required days (e.g., 90 if selected)
 forecast_df = forecast_multiple_skus(
     df=filtered_df,
     sku_col='product_sku',
@@ -134,7 +133,7 @@ hist_7d = filtered_df[filtered_df['order_date'] >= today - timedelta(days=6)].gr
 hist_30d = filtered_df[filtered_df['order_date'] >= today - timedelta(days=29)].groupby('product_sku')['product_qty'].sum().rename("qty_last_30d")
 hist_120d = filtered_df[filtered_df['order_date'] >= today - timedelta(days=119)].groupby('product_sku')['product_qty'].sum().rename("qty_last_120d")
 
-# Build forecast pivot table
+# Pivot forecasted results
 forecast_pivot = (
     forecast_df
     .groupby(['product_sku', 'forecast_days_ahead'])['forecast_qty']
@@ -144,17 +143,16 @@ forecast_pivot = (
     .fillna(0)
 )
 
-# Add forecast horizon columns dynamically
+# Add forecast horizon columns
 forecast_summary = pd.DataFrame(index=forecast_pivot.index)
 for days in forecast_days_list:
     forecast_summary[f"forecast_qty_{days}d"] = forecast_pivot.loc[:, :days].sum(axis=1)
 
-# Join historical columns
+# Merge with historical data
 forecast_summary = forecast_summary.join([hist_7d, hist_30d, hist_120d])
 forecast_summary.reset_index(inplace=True)
 forecast_summary.fillna(0, inplace=True)
 
-# Show final forecast summary table
 with col_f2:
     forecast_csv = prepare_forecast_csv(forecast_summary)
     st.download_button(
@@ -173,7 +171,7 @@ col_i1, col_i2 = st.columns([0.8, 0.2])
 with col_i1:
     st.write("")
 
-# Choose largest forecast horizon
+# Use the largest forecast horizon for planning
 best_col = f"forecast_qty_{max(forecast_days_list)}d"
 rec_df = forecast_summary[['product_sku', best_col]].rename(columns={best_col: 'forecast_qty'})
 rec_df['avg_daily_forecast'] = rec_df['forecast_qty'] / max(forecast_days_list)
